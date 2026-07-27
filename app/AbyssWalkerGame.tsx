@@ -326,7 +326,7 @@ function drawRaycastLighting(c: CanvasRenderingContext2D, game: Game) {
 }
 
 function makeEnemies(zone: ZoneId): Enemy[] {
-  const kinds: EnemyKind[] = ["wisp", "hound", "golem", "archer"];
+  const kinds: Exclude<EnemyKind, "boss">[] = ["wisp", "hound", "golem", "archer"];
   const kindElements: Record<Exclude<EnemyKind, "boss">, Enemy["element"]> = {
     wisp: "void",
     hound: "fire",
