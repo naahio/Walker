@@ -1245,7 +1245,7 @@ export default function PixelRpgGame() {
         <>
           <header className="pixel-hud">
             <div className="pixel-portrait">◇</div>
-            <div><strong>SILENT WARRIOR</strong><small>LV. 1</small>
+            <div><strong>OMAR</strong><small>LV. 1</small>
               <span className="pixel-bar hp"><i style={{ width: `${hud.hp / 3.2}%` }} />{Math.ceil(hud.hp)} / 320</span>
               <span className="pixel-bar mp"><i style={{ width: `${hud.energy}%` }} />{Math.ceil(hud.energy)} / 100</span>
             </div>
