@@ -85,7 +85,7 @@ type Game = {
   fishCaught: string[];
   supplies: { potions: number; bait: number; spearLevel: number; armorLevel: number };
   resources: ResourceNode[];
-  citizens: Citizen[];
+  citizens?: Citizen[];
   questStage: number;
   kills: number;
   attackTime: number;
@@ -174,59 +174,109 @@ const FOREST_OBJECTS: WorldObject[] = [
   { id: "old-forest-shrine", atlas: "forest", cell: 12, x: 29 * TILE, y: 48 * TILE, w: 145, h: 165, solid: true, action: "shrine" },
   { id: "crystal-cave", atlas: "forest", cell: 13, x: 38 * TILE, y: 54 * TILE, w: 190, h: 170, solid: true },
   { id: "forest-loot", atlas: "forest", cell: 14, x: 34 * TILE, y: 57 * TILE, w: 88, h: 78, solid: true, action: "chest" },
-  ...[[4, 42], [9, 55], [15, 59], [22, 44], [28, 52], [35, 42], [42, 48]].map(([tx, ty], i) => ({
+  ...[
+    [3, 41], [7, 44], [11, 57], [15, 60], [20, 42], [24, 46], [28, 53], [33, 41],
+    [37, 45], [42, 49], [4, 59], [18, 57], [31, 60], [40, 57], [44, 42],
+  ].map(([tx, ty], i) => ({
     id: `forest-oak-${i}`, atlas: "forest" as const, cell: i % 2, x: tx * TILE, y: ty * TILE, w: 155, h: 175, solid: true,
   })),
-  ...[[7, 57], [20, 49], [26, 59], [39, 45]].map(([tx, ty], i) => ({
+  ...[[7, 57], [20, 49], [26, 59], [39, 45], [13, 43], [35, 55]].map(([tx, ty], i) => ({
     id: `forest-logs-${i}`, atlas: "forest" as const, cell: 15, x: tx * TILE, y: ty * TILE, w: 98, h: 72, solid: true,
+  })),
+  ...[
+    [5, 48, 2], [9, 52, 3], [14, 47, 2], [19, 53, 3], [23, 58, 2], [27, 43, 3],
+    [31, 50, 2], [36, 47, 3], [41, 53, 2], [44, 59, 3], [11, 61, 2], [34, 60, 3],
+  ].map(([tx, ty, cell], i) => ({
+    id: `forest-undergrowth-${i}`, atlas: "forest" as const, cell, x: tx * TILE, y: ty * TILE, w: 90, h: 82,
   })),
 ];
 
 const CITY_OBJECTS: WorldObject[] = [
-  { id: "royal-castle", atlas: "city2", cell: 0, x: 82 * TILE, y: 8 * TILE, w: 340, h: 330, solid: true, action: "castle" },
-  { id: "royal-barracks", atlas: "city2", cell: 1, x: 69 * TILE, y: 11 * TILE, w: 220, h: 215, solid: true },
-  { id: "city-bank", atlas: "city2", cell: 3, x: 96 * TILE, y: 12 * TILE, w: 210, h: 205, solid: true },
-  { id: "city-inn", atlas: "city", cell: 2, x: 69 * TILE, y: 20 * TILE, w: 205, h: 195, solid: true },
-  { id: "city-library", atlas: "city", cell: 7, x: 94 * TILE, y: 20 * TILE, w: 205, h: 195, solid: true },
-  { id: "city-forge", atlas: "city", cell: 5, x: 68 * TILE, y: 29 * TILE, w: 185, h: 178, solid: true },
-  { id: "city-temple", atlas: "city", cell: 11, x: 96 * TILE, y: 30 * TILE, w: 215, h: 210, solid: true, action: "shrine" },
-  { id: "city-fountain", atlas: "city", cell: 9, x: 82 * TILE, y: 18 * TILE, w: 150, h: 130, solid: true },
-  ...[[73, 13, 8], [77, 13, 9], [88, 13, 10], [92, 13, 11], [73, 28, 9], [77, 28, 8], [87, 29, 10], [91, 29, 8]].map(([tx, ty, cell], i) => ({
-    id: `city-home-${i}`, atlas: "city2" as const, cell, x: tx * TILE, y: ty * TILE, w: cell === 11 ? 205 : 175, h: cell === 11 ? 185 : 165, solid: true,
+  { id: "royal-castle", atlas: "city2", cell: 0, x: 84 * TILE, y: 11 * TILE, w: 390, h: 375, solid: true, action: "castle" },
+  { id: "royal-barracks", atlas: "city2", cell: 1, x: 69 * TILE, y: 11 * TILE, w: 240, h: 230, solid: true },
+  { id: "city-bank", atlas: "city2", cell: 3, x: 99 * TILE, y: 11 * TILE, w: 230, h: 220, solid: true },
+  { id: "city-inn", atlas: "city", cell: 2, x: 69 * TILE, y: 21 * TILE, w: 220, h: 205, solid: true },
+  { id: "city-library", atlas: "city", cell: 6, x: 99 * TILE, y: 21 * TILE, w: 225, h: 210, solid: true },
+  { id: "city-forge", atlas: "city", cell: 5, x: 68 * TILE, y: 31 * TILE, w: 205, h: 195, solid: true },
+  { id: "city-temple", atlas: "city", cell: 11, x: 99 * TILE, y: 31 * TILE, w: 230, h: 225, solid: true, action: "shrine" },
+  { id: "city-fountain", atlas: "city", cell: 9, x: 84 * TILE, y: 18 * TILE, w: 170, h: 150, solid: true },
+  ...[
+    [74, 14, 8], [78, 14, 9], [90, 14, 10], [94, 14, 11],
+    [73, 31, 9], [77, 34, 8], [91, 34, 10], [95, 31, 8],
+    [69, 36, 10], [74, 37, 11], [94, 37, 9], [99, 36, 8],
+  ].map(([tx, ty, cell], i) => ({
+    id: `city-home-${i}`, atlas: "city2" as const, cell, x: tx * TILE, y: ty * TILE, w: cell === 11 ? 205 : 180, h: cell === 11 ? 185 : 170, solid: true,
   })),
-  { id: "weapon-vendor", atlas: "city2", cell: 12, x: 75 * TILE, y: 23 * TILE, w: 145, h: 125, solid: true, action: "vendor", vendor: "weapons" },
-  { id: "potion-vendor", atlas: "city2", cell: 13, x: 79 * TILE, y: 23 * TILE, w: 145, h: 125, solid: true, action: "vendor", vendor: "potions" },
-  { id: "fish-vendor", atlas: "city2", cell: 14, x: 85 * TILE, y: 23 * TILE, w: 145, h: 125, solid: true, action: "vendor", vendor: "fish" },
-  { id: "food-vendor", atlas: "city2", cell: 15, x: 89 * TILE, y: 23 * TILE, w: 145, h: 125, solid: true, action: "vendor", vendor: "food" },
-  { id: "city-gate", atlas: "city2", cell: 7, x: 82 * TILE, y: 37 * TILE, w: 230, h: 190 },
-  ...[[66, 5], [72, 5], [78, 5], [86, 5], [92, 5], [98, 5], [66, 37], [72, 37], [76, 37], [88, 37], [92, 37], [98, 37]].map(([tx, ty], i) => ({
-    id: `city-wall-h-${i}`, atlas: "city2" as const, cell: 4, x: tx * TILE, y: ty * TILE, w: 245, h: 112, solid: true,
+  { id: "weapon-vendor", atlas: "city2", cell: 12, x: 74 * TILE, y: 25 * TILE, w: 150, h: 132, solid: true, action: "vendor", vendor: "weapons" },
+  { id: "potion-vendor", atlas: "city2", cell: 13, x: 78 * TILE, y: 25 * TILE, w: 150, h: 132, solid: true, action: "vendor", vendor: "potions" },
+  { id: "fish-vendor", atlas: "city2", cell: 14, x: 90 * TILE, y: 25 * TILE, w: 150, h: 132, solid: true, action: "vendor", vendor: "fish" },
+  { id: "food-vendor", atlas: "city2", cell: 15, x: 94 * TILE, y: 25 * TILE, w: 150, h: 132, solid: true, action: "vendor", vendor: "food" },
+  ...[[69, 25, 12], [70, 28, 13], [98, 25, 14], [98, 28, 15]].map(([tx, ty, cell], i) => ({
+    id: `market-stall-${i}`, atlas: "city2" as const, cell, x: tx * TILE, y: ty * TILE, w: 138, h: 120, solid: true,
   })),
-  ...[[64, 9], [64, 15], [64, 21], [64, 27], [64, 33], [102, 9], [102, 15], [102, 21], [102, 27], [102, 33]].map(([tx, ty], i) => ({
-    id: `city-wall-v-${i}`, atlas: "city2" as const, cell: 5, x: tx * TILE, y: ty * TILE, w: 95, h: 205, solid: true,
+  { id: "city-gate", atlas: "city2", cell: 7, x: 84 * TILE, y: 40 * TILE, w: 245, h: 205 },
+  ...[66, 70, 74, 78, 82, 86, 90, 94, 98, 102].map((tx, i) => ({
+    id: `city-wall-n-${i}`, atlas: "city2" as const, cell: 4, x: tx * TILE, y: 5 * TILE, w: 220, h: 105, solid: true,
   })),
-  ...[[64, 5], [102, 5], [64, 37], [102, 37]].map(([tx, ty], i) => ({
+  ...[66, 70, 74, 78, 90, 94, 98, 102].map((tx, i) => ({
+    id: `city-wall-s-${i}`, atlas: "city2" as const, cell: 4, x: tx * TILE, y: 40 * TILE, w: 220, h: 105, solid: true,
+  })),
+  ...[8, 12, 16, 20, 24, 28, 32, 36].flatMap((ty, i) => ([
+    { id: `city-wall-w-${i}`, atlas: "city2" as const, cell: 5, x: 64 * TILE, y: ty * TILE, w: 96, h: 195, solid: true },
+    { id: `city-wall-e-${i}`, atlas: "city2" as const, cell: 5, x: 104 * TILE, y: ty * TILE, w: 96, h: 195, solid: true },
+  ])),
+  ...[[64, 5], [104, 5], [64, 40], [104, 40]].map(([tx, ty], i) => ({
     id: `city-tower-${i}`, atlas: "city2" as const, cell: 6, x: tx * TILE, y: ty * TILE, w: 145, h: 175, solid: true,
   })),
-  ...[[72, 18], [76, 18], [88, 18], [92, 18], [72, 33], [76, 33], [88, 33], [92, 33]].map(([tx, ty], i) => ({
+  ...[[72, 18], [76, 18], [92, 18], [96, 18], [72, 28], [78, 28], [90, 28], [96, 28], [80, 34], [88, 34]].map(([tx, ty], i) => ({
     id: `city-lamp-${i}`, atlas: "city" as const, cell: 12, x: tx * TILE, y: ty * TILE, w: 58, h: 92, solid: true,
   })),
-  { id: "city-board", atlas: "city", cell: 13, x: 82 * TILE, y: 28 * TILE, w: 108, h: 100, solid: true },
-  { id: "city-flowers-a", atlas: "city", cell: 14, x: 79 * TILE, y: 18 * TILE, w: 98, h: 72, solid: true },
-  { id: "city-flowers-b", atlas: "city", cell: 14, x: 85 * TILE, y: 18 * TILE, w: 98, h: 72, solid: true },
+  { id: "city-board", atlas: "city", cell: 13, x: 84 * TILE, y: 29 * TILE, w: 108, h: 100, solid: true },
+  ...[[80, 18], [88, 18], [81, 30], [87, 30], [66, 24], [102, 24]].map(([tx, ty], i) => ({
+    id: `city-flowers-${i}`, atlas: "city" as const, cell: 14, x: tx * TILE, y: ty * TILE, w: 96, h: 72,
+  })),
+  ...[[76, 20], [92, 20], [80, 31], [88, 31]].map(([tx, ty], i) => ({
+    id: `city-bench-${i}`, atlas: "city" as const, cell: 15, x: tx * TILE, y: ty * TILE, w: 105, h: 75, solid: true,
+  })),
 ];
 
 function makeResources(): ResourceNode[] {
   const nodes: ResourceNode[] = [];
-  [[8, 47], [13, 56], [18, 60], [30, 48], [42, 38], [67, 39]].forEach(([x, y], i) => nodes.push({ id: `herb-${i}`, atlas: "forest", cell: 3, x: x * TILE, y: y * TILE, kind: "herb", collected: false }));
-  [[6, 54], [17, 45], [29, 58], [44, 34]].forEach(([x, y], i) => nodes.push({ id: `mushroom-${i}`, cell: 1, x: x * TILE, y: y * TILE, kind: "mushroom", collected: false }));
-  [[25, 36], [33, 40], [12, 52], [22, 57], [72, 34], [92, 29]].forEach(([x, y], i) => nodes.push({ id: `berry-${i}`, atlas: "forest", cell: 2, x: x * TILE, y: y * TILE, kind: "berry", collected: false }));
+  [[5, 46], [8, 52], [12, 58], [16, 44], [20, 55], [25, 49], [30, 58], [35, 46], [40, 54], [44, 43], [42, 38], [67, 39]].forEach(([x, y], i) => nodes.push({ id: `herb-${i}`, atlas: "forest", cell: 3, x: x * TILE, y: y * TILE, kind: "herb", collected: false }));
+  [[6, 54], [11, 48], [17, 45], [23, 52], [29, 58], [34, 43], [39, 57], [44, 34]].forEach(([x, y], i) => nodes.push({ id: `mushroom-${i}`, cell: 1, x: x * TILE, y: y * TILE, kind: "mushroom", collected: false }));
+  [[25, 36], [33, 40], [7, 50], [12, 52], [18, 59], [22, 57], [28, 46], [36, 52], [42, 60], [72, 34], [92, 29]].forEach(([x, y], i) => nodes.push({ id: `berry-${i}`, atlas: "forest", cell: 2, x: x * TILE, y: y * TILE, kind: "berry", collected: false }));
   [[53, 37], [54, 51], [68, 66], [76, 70], [84, 66], [92, 72], [102, 67]].forEach(([x, y], i) => nodes.push({ id: `fish-${i}`, atlas: "ocean", cell: 12, x: x * TILE, y: y * TILE, kind: "fish", collected: false }));
   [[39, 7], [61, 15], [101, 34]].forEach(([x, y], i) => nodes.push({ id: `ore-${i}`, cell: 3, x: x * TILE, y: y * TILE, kind: "ore", collected: false }));
   return nodes;
 }
 
 const WORLD_OBJECTS = [...OBJECTS, ...EXPANSION_OBJECTS, ...FOREST_OBJECTS, ...CITY_OBJECTS];
+
+const CITIZEN_ROUTES = [
+  [84, 14], [84, 19], [84, 24], [84, 29], [84, 35],
+  [72, 23], [76, 23], [92, 23], [97, 23],
+  [72, 28], [78, 28], [90, 28], [97, 28],
+  [70, 17], [77, 17], [91, 17], [98, 17],
+] as const;
+
+function makeCitizens(): Citizen[] {
+  return Array.from({ length: 24 }, (_, id) => {
+    const start = CITIZEN_ROUTES[id % CITIZEN_ROUTES.length];
+    const target = CITIZEN_ROUTES[(id * 5 + 3) % CITIZEN_ROUTES.length];
+    return {
+      id,
+      cell: 4 + (id % 4),
+      x: start[0] * TILE + (id % 3 - 1) * 12,
+      y: start[1] * TILE + (id % 2 ? 10 : -10),
+      homeX: start[0] * TILE,
+      homeY: start[1] * TILE,
+      targetX: target[0] * TILE,
+      targetY: target[1] * TILE,
+      speed: 35 + (id % 4) * 6,
+      pause: (id % 5) * .3,
+    };
+  });
+}
 
 function makeEnemies(): Enemy[] {
   const data = [
@@ -247,6 +297,15 @@ function makeEnemies(): Enemy[] {
     { id: 122, atlas: "forest", cell: 4, x: 32 * TILE, y: 48 * TILE, homeX: 32 * TILE, homeY: 48 * TILE, hp: 95, maxHp: 95, speed: 125, cooldown: 0, flash: 0, dropsMeat: true, passive: true },
     { id: 123, atlas: "forest", cell: 6, x: 18 * TILE, y: 47 * TILE, homeX: 18 * TILE, homeY: 47 * TILE, hp: 35, maxHp: 35, speed: 155, cooldown: 0, flash: 0, dropsMeat: true, passive: true },
     { id: 124, atlas: "forest", cell: 7, x: 27 * TILE, y: 44 * TILE, homeX: 27 * TILE, homeY: 44 * TILE, hp: 28, maxHp: 28, speed: 145, cooldown: 0, flash: 0, dropsMeat: true, passive: true },
+    { id: 125, atlas: "forest", cell: 4, x: 7 * TILE, y: 45 * TILE, homeX: 7 * TILE, homeY: 45 * TILE, hp: 95, maxHp: 95, speed: 125, cooldown: 0, flash: 0, dropsMeat: true, passive: true },
+    { id: 126, atlas: "forest", cell: 4, x: 39 * TILE, y: 57 * TILE, homeX: 39 * TILE, homeY: 57 * TILE, hp: 95, maxHp: 95, speed: 125, cooldown: 0, flash: 0, dropsMeat: true, passive: true },
+    { id: 127, atlas: "forest", cell: 5, x: 34 * TILE, y: 51 * TILE, homeX: 34 * TILE, homeY: 51 * TILE, hp: 145, maxHp: 145, speed: 92, cooldown: 0, flash: 0, dropsMeat: true },
+    { id: 128, atlas: "forest", cell: 6, x: 11 * TILE, y: 58 * TILE, homeX: 11 * TILE, homeY: 58 * TILE, hp: 35, maxHp: 35, speed: 155, cooldown: 0, flash: 0, dropsMeat: true, passive: true },
+    { id: 129, atlas: "forest", cell: 6, x: 24 * TILE, y: 50 * TILE, homeX: 24 * TILE, homeY: 50 * TILE, hp: 35, maxHp: 35, speed: 155, cooldown: 0, flash: 0, dropsMeat: true, passive: true },
+    { id: 130, atlas: "forest", cell: 6, x: 41 * TILE, y: 47 * TILE, homeX: 41 * TILE, homeY: 47 * TILE, hp: 35, maxHp: 35, speed: 155, cooldown: 0, flash: 0, dropsMeat: true, passive: true },
+    { id: 131, atlas: "forest", cell: 7, x: 6 * TILE, y: 51 * TILE, homeX: 6 * TILE, homeY: 51 * TILE, hp: 28, maxHp: 28, speed: 145, cooldown: 0, flash: 0, passive: true },
+    { id: 132, atlas: "forest", cell: 7, x: 31 * TILE, y: 45 * TILE, homeX: 31 * TILE, homeY: 45 * TILE, hp: 28, maxHp: 28, speed: 145, cooldown: 0, flash: 0, passive: true },
+    { id: 133, atlas: "forest", cell: 7, x: 43 * TILE, y: 55 * TILE, homeX: 43 * TILE, homeY: 55 * TILE, hp: 28, maxHp: 28, speed: 145, cooldown: 0, flash: 0, passive: true },
   );
   return enemies;
 }
@@ -266,6 +325,7 @@ function freshGame(): Game {
     fishCaught: [],
     supplies: { potions: 0, bait: 0, spearLevel: 0, armorLevel: 0 },
     resources: makeResources(),
+    citizens: makeCitizens(),
     questStage: 0,
     kills: 0,
     attackTime: 0,
@@ -283,13 +343,10 @@ function groundAt(tx: number, ty: number) {
   const bridge = river && ((ty >= 20 && ty <= 22) || (ty >= 47 && ty <= 49));
   if (river && !bridge) return 3;
   if (bridge) return 1;
-  const city = tx >= 64 && tx <= 102 && ty >= 5 && ty <= 37;
+  const city = tx >= 63 && tx <= 105 && ty >= 4 && ty <= 40;
   if (city) {
-    const avenue = tx >= 80 && tx <= 84;
-    const marketStreet = ty >= 20 && ty <= 24;
-    const southStreet = ty >= 32 && ty <= 36;
-    const residentialLanes = (tx >= 70 && tx <= 73) || (tx >= 92 && tx <= 95);
-    return avenue || marketStreet || southStreet || residentialLanes ? 1 : 0;
+    const garden = ((tx >= 79 && tx <= 81) || (tx >= 87 && tx <= 89)) && ty >= 16 && ty <= 19;
+    return garden ? 0 : 1;
   }
   if ((ty >= 20 && ty <= 22) || (tx >= 16 && tx <= 18) || (tx >= 78 && tx <= 80) || (ty >= 47 && ty <= 49 && tx < 80)) return 1;
   if (ty >= 60 && ty < 63) return 1;
@@ -320,8 +377,111 @@ function drawCell(c: CanvasRenderingContext2D, image: HTMLImageElement, cell: nu
   c.drawImage(image, (cell % 4) * sw, Math.floor(cell / 4) * sh, sw, sh, x, y, w, h);
 }
 
+const INGREDIENT_META: Record<Ingredient, { icon: string; label: string; color: string }> = {
+  herb: { icon: "☘", label: "Moonleaf", color: "#7fe17e" },
+  mushroom: { icon: "♧", label: "Cavecap", color: "#d7a4ed" },
+  berry: { icon: "●", label: "Sunberry", color: "#e56475" },
+  ore: { icon: "▰", label: "Crystal Ore", color: "#8bd8ff" },
+  fish: { icon: "♒", label: "Fishing Spot", color: "#5acfff" },
+  meat: { icon: "♨", label: "Game Meat", color: "#e59c66" },
+};
+
+function drawResourceMarker(
+  c: CanvasRenderingContext2D,
+  resource: ResourceNode,
+  camera: { x: number; y: number },
+  time: number,
+  playerX: number,
+  playerY: number,
+) {
+  const x = resource.x - camera.x;
+  const y = resource.y - camera.y;
+  const meta = INGREDIENT_META[resource.kind];
+  const pulse = 1 + Math.sin(time * 4 + resource.x * .01) * .12;
+  c.save();
+  c.translate(x, y - 24);
+  c.strokeStyle = meta.color;
+  c.fillStyle = `${meta.color}33`;
+  c.shadowColor = meta.color;
+  c.shadowBlur = 12;
+  c.lineWidth = 2;
+  c.beginPath();
+  c.ellipse(0, 17, 25 * pulse, 10 * pulse, 0, 0, Math.PI * 2);
+  c.fill();
+  c.stroke();
+  c.beginPath();
+  c.moveTo(0, -35);
+  c.lineTo(7, -27);
+  c.lineTo(0, -19);
+  c.lineTo(-7, -27);
+  c.closePath();
+  c.fillStyle = meta.color;
+  c.fill();
+  c.shadowBlur = 0;
+  if (Math.hypot(resource.x - playerX, resource.y - playerY) < 150) {
+    c.font = "900 10px 'Courier New', monospace";
+    const width = c.measureText(meta.label.toUpperCase()).width + 18;
+    c.fillStyle = "rgba(15,10,6,.9)";
+    c.strokeStyle = "#c79b4b";
+    c.fillRect(-width / 2, -58, width, 18);
+    c.strokeRect(-width / 2, -58, width, 18);
+    c.fillStyle = "#fff0bd";
+    c.textAlign = "center";
+    c.fillText(meta.label.toUpperCase(), 0, -45);
+  }
+  c.restore();
+}
+
+function drawMiniMap(canvas: HTMLCanvasElement | null, game: Game) {
+  if (!canvas) return;
+  const width = 240;
+  const height = 154;
+  if (canvas.width !== width || canvas.height !== height) {
+    canvas.width = width;
+    canvas.height = height;
+  }
+  const c = canvas.getContext("2d");
+  if (!c) return;
+  const sx = width / WORLD_W;
+  const sy = height / WORLD_H;
+  c.clearRect(0, 0, width, height);
+  c.fillStyle = "#426b31";
+  c.fillRect(0, 0, width, height);
+  c.fillStyle = "#174f76";
+  c.fillRect(52 * TILE * sx, 0, 4 * TILE * sx, height);
+  c.fillRect(0, 63 * TILE * sy, width, 17 * TILE * sy);
+  c.fillStyle = "#244b27";
+  c.fillRect(0, 38 * TILE * sy, 46 * TILE * sx, 25 * TILE * sy);
+  c.fillStyle = "#87765b";
+  c.fillRect(63 * TILE * sx, 4 * TILE * sy, 42 * TILE * sx, 36 * TILE * sy);
+  c.strokeStyle = "#e4c477";
+  c.lineWidth = 1.5;
+  c.strokeRect(63 * TILE * sx, 4 * TILE * sy, 42 * TILE * sx, 36 * TILE * sy);
+  c.strokeStyle = "#cbb782";
+  c.lineWidth = 2;
+  c.beginPath();
+  c.moveTo(17 * TILE * sx, 0);
+  c.lineTo(17 * TILE * sx, 49 * TILE * sy);
+  c.lineTo(84 * TILE * sx, 49 * TILE * sy);
+  c.moveTo(56 * TILE * sx, 21 * TILE * sy);
+  c.lineTo(105 * TILE * sx, 21 * TILE * sy);
+  c.stroke();
+  for (const resource of game.resources) {
+    if (resource.collected) continue;
+    c.fillStyle = INGREDIENT_META[resource.kind].color;
+    c.fillRect(resource.x * sx - 1, resource.y * sy - 1, 3, 3);
+  }
+  c.fillStyle = "#ffe373";
+  c.beginPath();
+  c.arc(game.player.x * sx, game.player.y * sy, 4, 0, Math.PI * 2);
+  c.fill();
+  c.strokeStyle = "#31170c";
+  c.stroke();
+}
+
 export default function PixelRpgGame() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const miniMapRef = useRef<HTMLCanvasElement>(null);
   const gameRef = useRef<Game>(freshGame());
   const phaseRef = useRef<Phase>("title");
   const mapRef = useRef(false);
@@ -332,7 +492,7 @@ export default function PixelRpgGame() {
   const [fishBookOpen, setFishBookOpen] = useState(false);
   const [vendorOpen, setVendorOpen] = useState<VendorId | null>(null);
   const [toast, setToast] = useState("");
-  const [hud, setHud] = useState({ hp: 320, energy: 100, gold: 65, shards: 0, kills: 0, quest: 0, boss: 760, area: "TRANQUIL VILLAGE", boat: false, cooked: 0, fishCaught: [] as string[], supplies: { potions: 0, bait: 0, spearLevel: 0, armorLevel: 0 }, inventory: { herb: 0, mushroom: 0, berry: 0, ore: 0, fish: 0, meat: 0 } });
+  const [hud, setHud] = useState({ hp: 320, energy: 100, gold: 65, shards: 0, kills: 0, quest: 0, boss: 760, area: "TRANQUIL VILLAGE", boat: false, cooked: 0, fishCaught: [] as string[], position: { x: 18 * TILE, y: 23 * TILE }, supplies: { potions: 0, bait: 0, spearLevel: 0, armorLevel: 0 }, inventory: { herb: 0, mushroom: 0, berry: 0, ore: 0, fish: 0, meat: 0 } });
 
   const setPhase = useCallback((next: Phase) => {
     phaseRef.current = next;
@@ -615,6 +775,27 @@ export default function PixelRpgGame() {
         if (!blocked(game, p.x, ny)) p.y = ny;
 
         if (game.area === "village") {
+          const citizens = game.citizens ?? (game.citizens = makeCitizens());
+          for (const citizen of citizens) {
+            citizen.pause = Math.max(0, citizen.pause - dt);
+            if (citizen.pause > 0) continue;
+            const distance = Math.hypot(citizen.targetX - citizen.x, citizen.targetY - citizen.y);
+            if (distance < 12) {
+              const next = CITIZEN_ROUTES[(citizen.id * 7 + Math.floor(game.time / 3)) % CITIZEN_ROUTES.length];
+              citizen.targetX = next[0] * TILE + ((citizen.id % 3) - 1) * 14;
+              citizen.targetY = next[1] * TILE + (citizen.id % 2 ? 9 : -9);
+              citizen.pause = .5 + (citizen.id % 4) * .22;
+            } else {
+              const vx = ((citizen.targetX - citizen.x) / Math.max(1, distance)) * citizen.speed * dt;
+              const vy = ((citizen.targetY - citizen.y) / Math.max(1, distance)) * citizen.speed * dt;
+              const nextX = citizen.x + vx;
+              const nextY = citizen.y + vy;
+              if (!blocked(game, nextX, citizen.y)) citizen.x = nextX;
+              else citizen.pause = .35;
+              if (!blocked(game, citizen.x, nextY)) citizen.y = nextY;
+              else citizen.pause = .35;
+            }
+          }
           for (const enemy of game.enemies) {
             if (enemy.dead) continue;
             enemy.cooldown = Math.max(0, enemy.cooldown - dt);
@@ -648,12 +829,13 @@ export default function PixelRpgGame() {
           hp: Math.max(0, p.hp), energy: p.energy, gold: p.gold, shards: p.shards,
           kills: game.kills, quest: game.questStage, boss: Math.max(0, boss.hp),
           boat: game.boat, cooked: game.cooked, fishCaught: [...game.fishCaught], supplies: { ...game.supplies }, inventory: { ...game.inventory },
+          position: { x: p.x, y: p.y },
           area: game.area === "shop" ? "LANTERN & LEAF"
             : game.area === "home" ? "YOUR HOME"
               : p.y >= 63 * TILE ? "AZURE SEA"
                 : p.y >= 56 * TILE ? "AZURE COAST"
                   : p.x < 46 * TILE && p.y > 38 * TILE ? "WHISPERING FOREST"
-                    : p.x >= 64 * TILE && p.x <= 103 * TILE && p.y >= 4 * TILE && p.y <= 38 * TILE
+                    : p.x >= 63 * TILE && p.x <= 105 * TILE && p.y >= 4 * TILE && p.y <= 40 * TILE
                       ? p.y < 11 * TILE ? "SUNSPIRE CASTLE" : p.y >= 20 * TILE && p.y <= 26 * TILE ? "DAWNMARKET BAZAAR" : "DAWNMARKET CITY"
                       : p.y < 14 * TILE && p.x > 45 * TILE ? "GUARDIAN GROVE"
                         : "TRANQUIL VILLAGE",
@@ -705,21 +887,31 @@ export default function PixelRpgGame() {
           for (const resource of game.resources) {
             if (resource.collected) continue;
             const size = resource.kind === "fish" ? 74 : resource.kind === "berry" ? 70 : 56;
-            renderables.push({ y: resource.y, draw: () => drawCell(c, imageFor(resource.atlas ?? "expansion"), resource.cell, resource.x - size / 2 - cam.x, resource.y - size - cam.y, size, size) });
+            renderables.push({ y: resource.y, draw: () => {
+              drawResourceMarker(c, resource, cam, game.time, game.player.x, game.player.y);
+              drawCell(c, imageFor(resource.atlas ?? "expansion"), resource.cell, resource.x - size / 2 - cam.x, resource.y - size - cam.y, size, size);
+            } });
           }
           for (const npc of NPCS) renderables.push({ y: npc.y, draw: () => drawCell(c, sprites, npc.cell, npc.x - 34 - cam.x, npc.y - 68 - cam.y, 68, 68) });
+          for (const citizen of game.citizens ?? []) renderables.push({ y: citizen.y, draw: () => {
+            const walking = Math.hypot(citizen.targetX - citizen.x, citizen.targetY - citizen.y) > 12 && citizen.pause <= 0;
+            const bob = walking ? Math.sin(game.time * 9 + citizen.id) * 2 : 0;
+            drawCell(c, sprites, citizen.cell, citizen.x - 27 - cam.x, citizen.y - 57 - cam.y + bob, 54, 54);
+          } });
           for (const enemy of game.enemies) {
             if (enemy.dead) continue;
-            const size = enemy.boss ? 132 : 66;
+            const size = enemy.boss ? 132 : enemy.atlas === "forest" && enemy.cell <= 5 ? 78 : 60;
             renderables.push({ y: enemy.y, draw: () => {
               c.save();
               if (enemy.flash > 0) c.globalAlpha = .45;
               drawCell(c, imageFor(enemy.atlas ?? "sprites"), enemy.cell, enemy.x - size / 2 - cam.x, enemy.y - size - cam.y, size, size);
               c.restore();
-              c.fillStyle = "#31120e";
-              c.fillRect(enemy.x - 28 - cam.x, enemy.y - size - 9 - cam.y, 56, 5);
-              c.fillStyle = enemy.boss ? "#d89a3b" : "#83c447";
-              c.fillRect(enemy.x - 28 - cam.x, enemy.y - size - 9 - cam.y, 56 * Math.max(0, enemy.hp / enemy.maxHp), 5);
+              if (!enemy.passive || enemy.hp < enemy.maxHp) {
+                c.fillStyle = "#31120e";
+                c.fillRect(enemy.x - 28 - cam.x, enemy.y - size - 9 - cam.y, 56, 5);
+                c.fillStyle = enemy.boss ? "#d89a3b" : "#83c447";
+                c.fillRect(enemy.x - 28 - cam.x, enemy.y - size - 9 - cam.y, 56 * Math.max(0, enemy.hp / enemy.maxHp), 5);
+              }
             }});
           }
           renderables.sort((a, b) => a.y - b.y);
@@ -744,6 +936,7 @@ export default function PixelRpgGame() {
           drawCell(c, sprites, 13, 8, -45, 90, 90);
           c.restore();
         }
+        drawMiniMap(miniMapRef.current, game);
       }
       raf = requestAnimationFrame(loop);
     };
@@ -763,6 +956,11 @@ export default function PixelRpgGame() {
   return (
     <main className="pixel-game-shell">
       <canvas ref={canvasRef} className="pixel-game-canvas" aria-label="Top-down pixel art action RPG" />
+      <aside className={`pixel-minimap ${phase === "title" ? "hidden" : ""}`}>
+        <header><span>LIVE MAP</span><b>{hud.area}</b></header>
+        <canvas ref={miniMapRef} aria-label="Live minimap with player and collectible locations" />
+        <footer><i className="you">◆ YOU</i><i className="loot">◆ RESOURCES</i></footer>
+      </aside>
       {phase === "title" && (
         <section className="pixel-title">
           <small>AN ORIGINAL PIXEL ACTION RPG</small>
@@ -791,10 +989,16 @@ export default function PixelRpgGame() {
                   : hud.quest === 2 ? "Defeat the Root Guardian"
                     : "The northern road is safe"}</strong>
           </aside>
-          <aside className="pixel-inventory">
-            <span>☘ {hud.inventory.herb}</span><span>♧ {hud.inventory.mushroom}</span><span>● {hud.inventory.berry}</span>
-            <span>♒ {hud.inventory.fish}</span><span>♨ {hud.inventory.meat}</span><span>▰ {hud.inventory.ore}</span>
-            <span>♥ {hud.supplies.potions}</span><span>⌁ {hud.supplies.bait}</span><span>⚔ +{hud.supplies.spearLevel}</span>
+          <aside className="pixel-inventory" aria-label="Collected materials">
+            <small>FIELD PACK</small>
+            {(Object.keys(INGREDIENT_META) as Ingredient[]).map((kind) => (
+              <span key={kind} className={`collectible ${kind}`} title={INGREDIENT_META[kind].label}>
+                <i>{INGREDIENT_META[kind].icon}</i><b>{hud.inventory[kind]}</b><em>{INGREDIENT_META[kind].label}</em>
+              </span>
+            ))}
+            <span className="collectible potion"><i>♥</i><b>{hud.supplies.potions}</b><em>Potions</em></span>
+            <span className="collectible bait"><i>⌁</i><b>{hud.supplies.bait}</b><em>Bait</em></span>
+            <span className="collectible weapon"><i>⚔</i><b>+{hud.supplies.spearLevel}</b><em>Spear</em></span>
             {hud.boat && <b>⛵ SAILING</b>}
           </aside>
           <div className="pixel-hotbar"><button onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "j" }))}><b>J</b><span>✦</span><small>SPEAR +{hud.supplies.spearLevel}</small></button><button onClick={usePotion}><b>1</b><span>✚</span><small>POTION {hud.supplies.potions}</small></button><button><b>M</b><span>⌖</span><small>MAP</small></button><button><b>E</b><span>!</span><small>USE</small></button></div>
@@ -896,7 +1100,8 @@ export default function PixelRpgGame() {
             <i className="forest">WHISPERING FOREST<br />HUNTING · GATHERING</i>
             <i className="city">DAWNMARKET CITY<br />SHOPS · NPCS</i>
             <i className="coast">AZURE COAST<br />FISHING DOCK</i>
-            <i className="ocean">AZURE SEA<br />BOAT ROUTE</i><i className="cache">HIDDEN CACHE</i><b>◆ YOU</b>
+            <i className="ocean">AZURE SEA<br />BOAT ROUTE</i><i className="cache">HIDDEN CACHE</i>
+            <b style={{ left: `${Math.max(2, Math.min(96, hud.position.x / WORLD_W * 100))}%`, top: `${Math.max(3, Math.min(92, hud.position.y / WORLD_H * 100))}%` }}>◆ YOU</b>
           </div>
           <p>A single connected world: village life, your homestead, wild forest, market city, river crossings, coast and open-water routes.</p>
         </section>
