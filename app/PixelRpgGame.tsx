@@ -5,8 +5,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 type Phase = "title" | "playing" | "dead";
 type Area = "village" | "shop" | "home";
 type Direction = "down" | "left" | "right" | "up";
-type Atlas = "tiles" | "expansion" | "forest" | "ocean" | "city" | "city2";
-type VendorId = "weapons" | "potions" | "fish" | "food";
+type Atlas = "tiles" | "expansion" | "forest" | "ocean" | "city" | "city2" | "fortified" | "goblinRegion" | "goblinUnits";
+type VendorId = "weapons" | "potions" | "fish" | "food" | "goblin";
 type WorldObject = {
   id: string;
   cell: number;
@@ -16,7 +16,8 @@ type WorldObject = {
   h: number;
   solid?: boolean;
   atlas?: Atlas;
-  action?: "shop" | "home" | "chest" | "shrine" | "boat" | "cook" | "vendor" | "castle";
+  collision?: { w: number; h: number; offsetY?: number };
+  action?: "shop" | "home" | "chest" | "shrine" | "boat" | "cook" | "vendor" | "castle" | "cage" | "trap" | "bossLair" | "goblinShrine";
   vendor?: VendorId;
 };
 type Actor = {
@@ -26,6 +27,7 @@ type Actor = {
   x: number;
   y: number;
   line: string;
+  atlas?: Atlas | "sprites";
 };
 type Citizen = {
   id: number;
@@ -53,11 +55,11 @@ type Enemy = {
   dead?: boolean;
   cooldown: number;
   flash: number;
-  atlas?: "sprites" | "expansion" | "forest";
+  atlas?: Atlas | "sprites";
   dropsMeat?: boolean;
   passive?: boolean;
 };
-type Ingredient = "herb" | "mushroom" | "berry" | "ore" | "fish" | "meat";
+type Ingredient = "herb" | "mushroom" | "berry" | "ore" | "fish" | "meat" | "scrap" | "muckroot";
 type ResourceNode = { id: string; cell: number; x: number; y: number; kind: Ingredient; collected: boolean; atlas?: Atlas };
 type Game = {
   area: Area;
@@ -86,6 +88,9 @@ type Game = {
   supplies: { potions: number; bait: number; spearLevel: number; armorLevel: number };
   resources: ResourceNode[];
   citizens?: Citizen[];
+  goblinPrisonerFreed: boolean;
+  disarmedTraps: string[];
+  goblinReputation: number;
   questStage: number;
   kills: number;
   attackTime: number;
@@ -124,6 +129,11 @@ const NPCS: Actor[] = [
   { id: "castle-scholar", cell: 7, name: "Scholar Elian", x: 86 * TILE, y: 13 * TILE, line: "Sunspire was raised around an older flame. Its roots reach farther than the city walls." },
   { id: "camp-scout", cell: 5, name: "Nia the Scout", x: 16 * TILE, y: 52 * TILE, line: "Tracks overlap near the deep grove: deer, boar, rabbits, and something heavy enough to split stone." },
   { id: "herbalist", cell: 6, name: "Fen", x: 28 * TILE, y: 55 * TILE, line: "Blue flowers mark clean soil. Berry bushes attract wildlife, but the brightest mushrooms often hide near ruins." },
+  { id: "gribble", atlas: "goblinUnits", cell: 5, name: "Gribble the Almost-Honest", x: 69 * TILE, y: 51 * TILE, line: "Shiny things! Mostly found. Some purchased. None currently being searched for by guards." },
+  { id: "chef-nib", atlas: "goblinUnits", cell: 6, name: "Chef Nib", x: 75 * TILE, y: 55 * TILE, line: "Today soup is mushroom, boot and mystery. Boot costs extra because it has texture." },
+  { id: "wizzle", atlas: "goblinUnits", cell: 13, name: "Wizzle the Witch Doctor", x: 82 * TILE, y: 47 * TILE, line: "Spirits say brave warrior arrive. Spirits also say Wizzle left kettle on. Both prophecies terrible." },
+  { id: "bork", atlas: "goblinUnits", cell: 0, name: "Bork, Trap Inspector", x: 62 * TILE, y: 57 * TILE, line: "Every trap passed inspection. I inspected them by standing very far away." },
+  { id: "peeb", atlas: "goblinUnits", cell: 14, name: "Peeb the Prisoner", x: 92 * TILE, y: 56 * TILE, line: "I was arrested for asking why the War Chief needs seventeen chairs. Please open the cage before he buys another." },
 ];
 
 const OBJECTS: WorldObject[] = [
@@ -192,44 +202,44 @@ const FOREST_OBJECTS: WorldObject[] = [
 ];
 
 const CITY_OBJECTS: WorldObject[] = [
-  { id: "royal-castle", atlas: "city2", cell: 0, x: 84 * TILE, y: 11 * TILE, w: 390, h: 375, solid: true, action: "castle" },
-  { id: "royal-barracks", atlas: "city2", cell: 1, x: 69 * TILE, y: 11 * TILE, w: 240, h: 230, solid: true },
+  { id: "royal-castle", atlas: "fortified", cell: 8, x: 84 * TILE, y: 11 * TILE, w: 390, h: 375, solid: true, collision: { w: 255, h: 70 }, action: "castle" },
+  { id: "royal-barracks", atlas: "fortified", cell: 9, x: 69 * TILE, y: 11 * TILE, w: 240, h: 230, solid: true, collision: { w: 176, h: 48 } },
   { id: "city-bank", atlas: "city2", cell: 3, x: 99 * TILE, y: 11 * TILE, w: 230, h: 220, solid: true },
   { id: "city-inn", atlas: "city", cell: 2, x: 69 * TILE, y: 21 * TILE, w: 220, h: 205, solid: true },
   { id: "city-library", atlas: "city", cell: 6, x: 99 * TILE, y: 21 * TILE, w: 225, h: 210, solid: true },
   { id: "city-forge", atlas: "city", cell: 5, x: 68 * TILE, y: 31 * TILE, w: 205, h: 195, solid: true },
   { id: "city-temple", atlas: "city", cell: 11, x: 99 * TILE, y: 31 * TILE, w: 230, h: 225, solid: true, action: "shrine" },
-  { id: "city-fountain", atlas: "city", cell: 9, x: 84 * TILE, y: 18 * TILE, w: 170, h: 150, solid: true },
+  { id: "city-fountain", atlas: "fortified", cell: 13, x: 84 * TILE, y: 18 * TILE, w: 170, h: 150, solid: true, collision: { w: 122, h: 54 } },
   ...[
     [74, 14, 8], [78, 14, 9], [90, 14, 10], [94, 14, 11],
     [73, 31, 9], [77, 34, 8], [91, 34, 10], [95, 31, 8],
     [69, 36, 10], [74, 37, 11], [94, 37, 9], [99, 36, 8],
   ].map(([tx, ty, cell], i) => ({
-    id: `city-home-${i}`, atlas: "city2" as const, cell, x: tx * TILE, y: ty * TILE, w: cell === 11 ? 205 : 180, h: cell === 11 ? 185 : 170, solid: true,
+    id: `city-home-${i}`, atlas: i % 3 === 0 ? "city2" as const : "fortified" as const, cell: i % 3 === 0 ? cell : 10, x: tx * TILE, y: ty * TILE, w: cell === 11 ? 205 : 180, h: cell === 11 ? 185 : 170, solid: true, collision: { w: 125, h: 38 },
   })),
-  { id: "weapon-vendor", atlas: "city2", cell: 12, x: 74 * TILE, y: 25 * TILE, w: 150, h: 132, solid: true, action: "vendor", vendor: "weapons" },
-  { id: "potion-vendor", atlas: "city2", cell: 13, x: 78 * TILE, y: 25 * TILE, w: 150, h: 132, solid: true, action: "vendor", vendor: "potions" },
-  { id: "fish-vendor", atlas: "city2", cell: 14, x: 90 * TILE, y: 25 * TILE, w: 150, h: 132, solid: true, action: "vendor", vendor: "fish" },
-  { id: "food-vendor", atlas: "city2", cell: 15, x: 94 * TILE, y: 25 * TILE, w: 150, h: 132, solid: true, action: "vendor", vendor: "food" },
+  { id: "weapon-vendor", atlas: "fortified", cell: 11, x: 74 * TILE, y: 25 * TILE, w: 150, h: 132, solid: true, collision: { w: 118, h: 30 }, action: "vendor", vendor: "weapons" },
+  { id: "potion-vendor", atlas: "fortified", cell: 11, x: 78 * TILE, y: 25 * TILE, w: 150, h: 132, solid: true, collision: { w: 118, h: 30 }, action: "vendor", vendor: "potions" },
+  { id: "fish-vendor", atlas: "fortified", cell: 11, x: 90 * TILE, y: 25 * TILE, w: 150, h: 132, solid: true, collision: { w: 118, h: 30 }, action: "vendor", vendor: "fish" },
+  { id: "food-vendor", atlas: "fortified", cell: 11, x: 94 * TILE, y: 25 * TILE, w: 150, h: 132, solid: true, collision: { w: 118, h: 30 }, action: "vendor", vendor: "food" },
   ...[[69, 25, 12], [70, 28, 13], [98, 25, 14], [98, 28, 15]].map(([tx, ty, cell], i) => ({
-    id: `market-stall-${i}`, atlas: "city2" as const, cell, x: tx * TILE, y: ty * TILE, w: 138, h: 120, solid: true,
+    id: `market-stall-${i}`, atlas: i % 2 ? "city2" as const : "fortified" as const, cell: i % 2 ? cell : 11, x: tx * TILE, y: ty * TILE, w: 138, h: 120, solid: true, collision: { w: 108, h: 28 },
   })),
-  { id: "city-gate", atlas: "city2", cell: 7, x: 84 * TILE, y: 40 * TILE, w: 245, h: 205 },
+  { id: "city-gate", atlas: "fortified", cell: 6, x: 84 * TILE, y: 40 * TILE, w: 245, h: 205 },
   ...[66, 70, 74, 78, 82, 86, 90, 94, 98, 102].map((tx, i) => ({
-    id: `city-wall-n-${i}`, atlas: "city2" as const, cell: 4, x: tx * TILE, y: 5 * TILE, w: 220, h: 105, solid: true,
+    id: `city-wall-n-${i}`, atlas: "fortified" as const, cell: 0, x: tx * TILE, y: 5 * TILE, w: 220, h: 105, solid: true, collision: { w: 210, h: 28 },
   })),
   ...[66, 70, 74, 78, 90, 94, 98, 102].map((tx, i) => ({
-    id: `city-wall-s-${i}`, atlas: "city2" as const, cell: 4, x: tx * TILE, y: 40 * TILE, w: 220, h: 105, solid: true,
+    id: `city-wall-s-${i}`, atlas: "fortified" as const, cell: 0, x: tx * TILE, y: 40 * TILE, w: 220, h: 105, solid: true, collision: { w: 210, h: 28 },
   })),
   ...[8, 12, 16, 20, 24, 28, 32, 36].flatMap((ty, i) => ([
-    { id: `city-wall-w-${i}`, atlas: "city2" as const, cell: 5, x: 64 * TILE, y: ty * TILE, w: 96, h: 195, solid: true },
-    { id: `city-wall-e-${i}`, atlas: "city2" as const, cell: 5, x: 104 * TILE, y: ty * TILE, w: 96, h: 195, solid: true },
+    { id: `city-wall-w-${i}`, atlas: "fortified" as const, cell: 1, x: 64 * TILE, y: ty * TILE, w: 96, h: 195, solid: true, collision: { w: 30, h: 184 } },
+    { id: `city-wall-e-${i}`, atlas: "fortified" as const, cell: 1, x: 104 * TILE, y: ty * TILE, w: 96, h: 195, solid: true, collision: { w: 30, h: 184 } },
   ])),
   ...[[64, 5], [104, 5], [64, 40], [104, 40]].map(([tx, ty], i) => ({
-    id: `city-tower-${i}`, atlas: "city2" as const, cell: 6, x: tx * TILE, y: ty * TILE, w: 145, h: 175, solid: true,
+    id: `city-tower-${i}`, atlas: "fortified" as const, cell: i % 2 ? 5 : 4, x: tx * TILE, y: ty * TILE, w: 145, h: 175, solid: true, collision: { w: 92, h: 46 },
   })),
   ...[[72, 18], [76, 18], [92, 18], [96, 18], [72, 28], [78, 28], [90, 28], [96, 28], [80, 34], [88, 34]].map(([tx, ty], i) => ({
-    id: `city-lamp-${i}`, atlas: "city" as const, cell: 12, x: tx * TILE, y: ty * TILE, w: 58, h: 92, solid: true,
+    id: `city-lamp-${i}`, atlas: "fortified" as const, cell: 12, x: tx * TILE, y: ty * TILE, w: 58, h: 92, solid: true, collision: { w: 22, h: 20 },
   })),
   { id: "city-board", atlas: "city", cell: 13, x: 84 * TILE, y: 29 * TILE, w: 108, h: 100, solid: true },
   ...[[80, 18], [88, 18], [81, 30], [87, 30], [66, 24], [102, 24]].map(([tx, ty], i) => ({
@@ -240,6 +250,31 @@ const CITY_OBJECTS: WorldObject[] = [
   })),
 ];
 
+const GOBLIN_OBJECTS: WorldObject[] = [
+  { id: "goblin-entry-gate", atlas: "goblinRegion", cell: 10, x: 84 * TILE, y: 43 * TILE, w: 245, h: 210 },
+  { id: "snagtooth-war-camp", atlas: "goblinRegion", cell: 1, x: 61 * TILE, y: 48 * TILE, w: 250, h: 225, solid: true, collision: { w: 174, h: 48 } },
+  { id: "shaman-tower", atlas: "goblinRegion", cell: 2, x: 79 * TILE, y: 47 * TILE, w: 225, h: 270, solid: true, collision: { w: 130, h: 52 }, action: "goblinShrine" },
+  { id: "snagtooth-keep", atlas: "goblinRegion", cell: 3, x: 89 * TILE, y: 48 * TILE, w: 275, h: 255, solid: true, collision: { w: 190, h: 54 } },
+  { id: "war-chief-lair", atlas: "goblinRegion", cell: 0, x: 101 * TILE, y: 50 * TILE, w: 335, h: 305, solid: true, collision: { w: 248, h: 62 }, action: "bossLair" },
+  { id: "goblin-barracks", atlas: "goblinRegion", cell: 5, x: 64 * TILE, y: 58 * TILE, w: 225, h: 195, solid: true, collision: { w: 160, h: 42 } },
+  { id: "goblin-weapons-hall", atlas: "goblinRegion", cell: 6, x: 79 * TILE, y: 59 * TILE, w: 235, h: 205, solid: true, collision: { w: 170, h: 46 } },
+  { id: "goblin-forge", atlas: "goblinRegion", cell: 7, x: 102 * TILE, y: 59 * TILE, w: 225, h: 200, solid: true, collision: { w: 165, h: 44 } },
+  { id: "goblin-market", atlas: "goblinRegion", cell: 14, x: 69 * TILE, y: 52 * TILE, w: 220, h: 180, solid: true, collision: { w: 150, h: 36 }, action: "vendor", vendor: "goblin" },
+  { id: "goblin-cage", atlas: "goblinRegion", cell: 13, x: 92 * TILE, y: 57 * TILE, w: 150, h: 155, solid: true, collision: { w: 110, h: 38 }, action: "cage" },
+  { id: "goblin-bonfire-a", atlas: "goblinRegion", cell: 12, x: 72 * TILE, y: 47 * TILE, w: 125, h: 115, solid: true, collision: { w: 78, h: 28 }, action: "goblinShrine" },
+  { id: "goblin-bonfire-b", atlas: "goblinRegion", cell: 12, x: 86 * TILE, y: 55 * TILE, w: 115, h: 105, solid: true, collision: { w: 72, h: 26 }, action: "goblinShrine" },
+  { id: "goblin-swamp-bridge", atlas: "goblinRegion", cell: 15, x: 72 * TILE, y: 61 * TILE, w: 235, h: 115 },
+  ...[[67, 46], [74, 44], [86, 45], [95, 45], [60, 54], [74, 57], [97, 55]].map(([tx, ty], i) => ({
+    id: `goblin-hut-${i}`, atlas: "goblinRegion" as const, cell: 4, x: tx * TILE, y: ty * TILE, w: 158, h: 145, solid: true, collision: { w: 108, h: 31 },
+  })),
+  ...[[58, 44], [106, 44], [58, 53], [106, 53], [58, 61], [106, 61]].map(([tx, ty], i) => ({
+    id: `goblin-watch-${i}`, atlas: "goblinRegion" as const, cell: i % 2 ? 9 : 8, x: tx * TILE, y: ty * TILE, w: 118, h: 185, solid: true, collision: { w: 72, h: 34 },
+  })),
+  ...[[66, 50], [77, 53], [88, 51], [95, 60], [82, 57]].map(([tx, ty], i) => ({
+    id: `goblin-trap-${i}`, atlas: "goblinRegion" as const, cell: 11, x: tx * TILE, y: ty * TILE, w: 92, h: 65, action: "trap" as const,
+  })),
+];
+
 function makeResources(): ResourceNode[] {
   const nodes: ResourceNode[] = [];
   [[5, 46], [8, 52], [12, 58], [16, 44], [20, 55], [25, 49], [30, 58], [35, 46], [40, 54], [44, 43], [42, 38], [67, 39]].forEach(([x, y], i) => nodes.push({ id: `herb-${i}`, atlas: "forest", cell: 3, x: x * TILE, y: y * TILE, kind: "herb", collected: false }));
@@ -247,10 +282,12 @@ function makeResources(): ResourceNode[] {
   [[25, 36], [33, 40], [7, 50], [12, 52], [18, 59], [22, 57], [28, 46], [36, 52], [42, 60], [72, 34], [92, 29]].forEach(([x, y], i) => nodes.push({ id: `berry-${i}`, atlas: "forest", cell: 2, x: x * TILE, y: y * TILE, kind: "berry", collected: false }));
   [[53, 37], [54, 51], [68, 66], [76, 70], [84, 66], [92, 72], [102, 67]].forEach(([x, y], i) => nodes.push({ id: `fish-${i}`, atlas: "ocean", cell: 12, x: x * TILE, y: y * TILE, kind: "fish", collected: false }));
   [[39, 7], [61, 15], [101, 34]].forEach(([x, y], i) => nodes.push({ id: `ore-${i}`, cell: 3, x: x * TILE, y: y * TILE, kind: "ore", collected: false }));
+  [[60, 51], [67, 56], [73, 49], [81, 55], [88, 58], [98, 53], [104, 56]].forEach(([x, y], i) => nodes.push({ id: `scrap-${i}`, atlas: "goblinRegion", cell: 12, x: x * TILE, y: y * TILE, kind: "scrap", collected: false }));
+  [[62, 45], [70, 59], [76, 51], [84, 50], [91, 53], [101, 45]].forEach(([x, y], i) => nodes.push({ id: `muckroot-${i}`, atlas: "forest", cell: 3, x: x * TILE, y: y * TILE, kind: "muckroot", collected: false }));
   return nodes;
 }
 
-const WORLD_OBJECTS = [...OBJECTS, ...EXPANSION_OBJECTS, ...FOREST_OBJECTS, ...CITY_OBJECTS];
+const WORLD_OBJECTS = [...OBJECTS, ...EXPANSION_OBJECTS, ...FOREST_OBJECTS, ...CITY_OBJECTS, ...GOBLIN_OBJECTS];
 
 const CITIZEN_ROUTES = [
   [84, 14], [84, 19], [84, 24], [84, 29], [84, 35],
@@ -307,6 +344,32 @@ function makeEnemies(): Enemy[] {
     { id: 132, atlas: "forest", cell: 7, x: 31 * TILE, y: 45 * TILE, homeX: 31 * TILE, homeY: 45 * TILE, hp: 28, maxHp: 28, speed: 145, cooldown: 0, flash: 0, passive: true },
     { id: 133, atlas: "forest", cell: 7, x: 43 * TILE, y: 55 * TILE, homeX: 43 * TILE, homeY: 55 * TILE, hp: 28, maxHp: 28, speed: 145, cooldown: 0, flash: 0, passive: true },
   );
+  [
+    [0, 63, 45, 90, 82], [1, 70, 46, 140, 70], [2, 74, 52, 105, 66], [3, 81, 51, 150, 62],
+    [0, 86, 46, 90, 88], [1, 92, 52, 140, 72], [2, 96, 56, 105, 68], [3, 103, 54, 150, 62],
+    [7, 61, 55, 210, 98], [8, 69, 60, 320, 48], [9, 84, 59, 225, 72], [10, 88, 54, 120, 100],
+    [11, 98, 46, 190, 94], [15, 78, 45, 95, 112], [0, 73, 58, 90, 88], [2, 93, 45, 105, 68],
+  ].forEach(([cell, tx, ty, hp, speed], index) => {
+    enemies.push({
+      id: 200 + index,
+      atlas: "goblinUnits",
+      cell,
+      x: tx * TILE,
+      y: ty * TILE,
+      homeX: tx * TILE,
+      homeY: ty * TILE,
+      hp,
+      maxHp: hp,
+      speed,
+      cooldown: 0,
+      flash: 0,
+      dropsMeat: cell === 8 || cell === 9 || cell === 11,
+    });
+  });
+  enemies.push({
+    id: 299, atlas: "goblinUnits", cell: 12, x: 100 * TILE, y: 52 * TILE, homeX: 100 * TILE, homeY: 52 * TILE,
+    hp: 1100, maxHp: 1100, speed: 48, boss: true, cooldown: 0, flash: 0,
+  });
   return enemies;
 }
 
@@ -320,12 +383,15 @@ function freshGame(): Game {
     openedChest: false,
     shrineActive: false,
     boat: false,
-    inventory: { herb: 0, mushroom: 0, berry: 0, ore: 0, fish: 0, meat: 0 },
+    inventory: { herb: 0, mushroom: 0, berry: 0, ore: 0, fish: 0, meat: 0, scrap: 0, muckroot: 0 },
     cooked: 0,
     fishCaught: [],
     supplies: { potions: 0, bait: 0, spearLevel: 0, armorLevel: 0 },
     resources: makeResources(),
     citizens: makeCitizens(),
+    goblinPrisonerFreed: false,
+    disarmedTraps: [],
+    goblinReputation: 0,
     questStage: 0,
     kills: 0,
     attackTime: 0,
@@ -348,6 +414,14 @@ function groundAt(tx: number, ty: number) {
     const garden = ((tx >= 79 && tx <= 81) || (tx >= 87 && tx <= 89)) && ty >= 16 && ty <= 19;
     return garden ? 0 : 1;
   }
+  const goblinCamp = tx >= 57 && tx <= 107 && ty >= 41 && ty < 63;
+  if (goblinCamp) {
+    const mainRoad = tx >= 82 && tx <= 86;
+    const marketRoad = ty >= 50 && ty <= 53;
+    const windingTrail = (tx >= 61 && tx <= 64 && ty >= 44 && ty <= 59) || (tx >= 96 && tx <= 101 && ty >= 45 && ty <= 59);
+    if (mainRoad || marketRoad || windingTrail) return 1;
+    return (tx * 7 + ty * 11) % 9 < 2 ? 0 : 2;
+  }
   if ((ty >= 20 && ty <= 22) || (tx >= 16 && tx <= 18) || (tx >= 78 && tx <= 80) || (ty >= 47 && ty <= 49 && tx < 80)) return 1;
   if (ty >= 60 && ty < 63) return 1;
   if (ty < 12 && tx > 46) return 2;
@@ -356,9 +430,15 @@ function groundAt(tx: number, ty: number) {
 }
 
 function rectHit(cx: number, cy: number, radius: number, object: WorldObject) {
-  const left = object.x - object.w / 2 + 8;
-  const top = object.y - object.h + 12;
-  return cx + radius > left && cx - radius < left + object.w - 16 && cy + radius > top && cy - radius < object.y;
+  const collision = object.collision ?? {
+    w: Math.max(24, object.w * .66),
+    h: Math.max(22, Math.min(48, object.h * .24)),
+    offsetY: 0,
+  };
+  const bottom = object.y + (collision.offsetY ?? 0);
+  const left = object.x - collision.w / 2;
+  const top = bottom - collision.h;
+  return cx + radius > left && cx - radius < left + collision.w && cy + radius > top && cy - radius < bottom;
 }
 
 function blocked(game: Game, x: number, y: number) {
@@ -369,6 +449,101 @@ function blocked(game: Game, x: number, y: number) {
   const checks = [[x - 14, y], [x + 14, y], [x, y - 12], [x, y + 14]];
   if (!game.boat && checks.some(([px, py]) => groundAt(Math.floor(px / TILE), Math.floor(py / TILE)) === 3)) return true;
   return WORLD_OBJECTS.some((item) => item.solid && rectHit(x, y, 15, item));
+}
+
+const SAVE_KEY = "abyss-walker-beta-save-v2";
+
+type SavedGame = {
+  version: 2;
+  player: Pick<Game["player"], "x" | "y" | "hp" | "maxHp" | "energy" | "gold" | "shards">;
+  inventory: Game["inventory"];
+  supplies: Game["supplies"];
+  openedChest: boolean;
+  shrineActive: boolean;
+  boat: boolean;
+  cooked: number;
+  fishCaught: string[];
+  questStage: number;
+  kills: number;
+  goblinPrisonerFreed: boolean;
+  disarmedTraps: string[];
+  goblinReputation: number;
+  collectedResources: string[];
+  enemies: Array<{ id: number; hp: number; dead: boolean }>;
+};
+
+function persistGame(game: Game) {
+  if (typeof window === "undefined" || game.area !== "village") return;
+  const data: SavedGame = {
+    version: 2,
+    player: {
+      x: game.player.x,
+      y: game.player.y,
+      hp: Math.max(1, game.player.hp),
+      maxHp: game.player.maxHp,
+      energy: game.player.energy,
+      gold: game.player.gold,
+      shards: game.player.shards,
+    },
+    inventory: { ...game.inventory },
+    supplies: { ...game.supplies },
+    openedChest: game.openedChest,
+    shrineActive: game.shrineActive,
+    boat: game.boat,
+    cooked: game.cooked,
+    fishCaught: [...game.fishCaught],
+    questStage: game.questStage,
+    kills: game.kills,
+    goblinPrisonerFreed: game.goblinPrisonerFreed,
+    disarmedTraps: [...game.disarmedTraps],
+    goblinReputation: game.goblinReputation,
+    collectedResources: game.resources.filter((resource) => resource.collected).map((resource) => resource.id),
+    enemies: game.enemies.map((enemy) => ({ id: enemy.id, hp: enemy.hp, dead: Boolean(enemy.dead) })),
+  };
+  localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+}
+
+function restoreGame() {
+  const game = freshGame();
+  if (typeof window === "undefined") return game;
+  try {
+    const raw = localStorage.getItem(SAVE_KEY);
+    if (!raw) return game;
+    const saved = JSON.parse(raw) as Partial<SavedGame>;
+    if (saved.version !== 2 || !saved.player) return game;
+    Object.assign(game.player, saved.player);
+    if (saved.inventory) game.inventory = { ...game.inventory, ...saved.inventory };
+    if (saved.supplies) game.supplies = { ...game.supplies, ...saved.supplies };
+    game.openedChest = Boolean(saved.openedChest);
+    game.shrineActive = Boolean(saved.shrineActive);
+    game.boat = Boolean(saved.boat);
+    game.cooked = Math.max(0, saved.cooked ?? 0);
+    game.fishCaught = Array.isArray(saved.fishCaught) ? saved.fishCaught : [];
+    game.questStage = Math.max(0, saved.questStage ?? 0);
+    game.kills = Math.max(0, saved.kills ?? 0);
+    game.goblinPrisonerFreed = Boolean(saved.goblinPrisonerFreed);
+    game.disarmedTraps = Array.isArray(saved.disarmedTraps) ? saved.disarmedTraps : [];
+    game.goblinReputation = Math.max(0, saved.goblinReputation ?? 0);
+    const collected = new Set(saved.collectedResources ?? []);
+    game.resources.forEach((resource) => { resource.collected = collected.has(resource.id); });
+    const enemyState = new Map((saved.enemies ?? []).map((enemy) => [enemy.id, enemy]));
+    game.enemies.forEach((enemy) => {
+      const state = enemyState.get(enemy.id);
+      if (!state) return;
+      enemy.hp = state.hp;
+      enemy.dead = state.dead;
+    });
+    if (blocked(game, game.player.x, game.player.y)) {
+      game.player.x = 84 * TILE;
+      game.player.y = 37 * TILE;
+      game.boat = false;
+    }
+    game.camera.x = Math.max(0, Math.min(WORLD_W - W, game.player.x - W / 2));
+    game.camera.y = Math.max(0, Math.min(WORLD_H - H, game.player.y - H / 2));
+  } catch {
+    localStorage.removeItem(SAVE_KEY);
+  }
+  return game;
 }
 
 function drawCell(c: CanvasRenderingContext2D, image: HTMLImageElement, cell: number, x: number, y: number, w: number, h: number) {
@@ -384,6 +559,8 @@ const INGREDIENT_META: Record<Ingredient, { icon: string; label: string; color: 
   ore: { icon: "▰", label: "Crystal Ore", color: "#8bd8ff" },
   fish: { icon: "♒", label: "Fishing Spot", color: "#5acfff" },
   meat: { icon: "♨", label: "Game Meat", color: "#e59c66" },
+  scrap: { icon: "⚙", label: "Goblin Scrap", color: "#e3b055" },
+  muckroot: { icon: "♣", label: "Muckroot", color: "#9bbf51" },
 };
 
 function drawResourceMarker(
@@ -457,6 +634,10 @@ function drawMiniMap(canvas: HTMLCanvasElement | null, game: Game) {
   c.strokeStyle = "#e4c477";
   c.lineWidth = 1.5;
   c.strokeRect(63 * TILE * sx, 4 * TILE * sy, 42 * TILE * sx, 36 * TILE * sy);
+  c.fillStyle = "#57442b";
+  c.fillRect(57 * TILE * sx, 41 * TILE * sy, 50 * TILE * sx, 22 * TILE * sy);
+  c.strokeStyle = "#e26d37";
+  c.strokeRect(57 * TILE * sx, 41 * TILE * sy, 50 * TILE * sx, 22 * TILE * sy);
   c.strokeStyle = "#cbb782";
   c.lineWidth = 2;
   c.beginPath();
@@ -492,24 +673,55 @@ export default function PixelRpgGame() {
   const [fishBookOpen, setFishBookOpen] = useState(false);
   const [vendorOpen, setVendorOpen] = useState<VendorId | null>(null);
   const [toast, setToast] = useState("");
-  const [hud, setHud] = useState({ hp: 320, energy: 100, gold: 65, shards: 0, kills: 0, quest: 0, boss: 760, area: "TRANQUIL VILLAGE", boat: false, cooked: 0, fishCaught: [] as string[], position: { x: 18 * TILE, y: 23 * TILE }, supplies: { potions: 0, bait: 0, spearLevel: 0, armorLevel: 0 }, inventory: { herb: 0, mushroom: 0, berry: 0, ore: 0, fish: 0, meat: 0 } });
+  const [hasSave, setHasSave] = useState(false);
+  const [hud, setHud] = useState({ hp: 320, energy: 100, gold: 65, shards: 0, kills: 0, quest: 0, boss: 760, area: "TRANQUIL VILLAGE", boat: false, cooked: 0, fishCaught: [] as string[], position: { x: 18 * TILE, y: 23 * TILE }, supplies: { potions: 0, bait: 0, spearLevel: 0, armorLevel: 0 }, inventory: { herb: 0, mushroom: 0, berry: 0, ore: 0, fish: 0, meat: 0, scrap: 0, muckroot: 0 } });
 
   const setPhase = useCallback((next: Phase) => {
     phaseRef.current = next;
     setPhaseState(next);
   }, []);
 
-  const startGame = useCallback(() => {
-    gameRef.current = freshGame();
+  const startGame = useCallback((newJourney = false) => {
+    gameRef.current = newJourney ? freshGame() : restoreGame();
     setDialog(null);
     setMapOpen(false);
     setCookingOpen(false);
     setFishBookOpen(false);
     setVendorOpen(null);
     mapRef.current = false;
-    setToast("TRANQUIL VILLAGE · THE ELEMENTAL FRONTIER");
+    setToast(newJourney || !hasSave ? "TRANQUIL VILLAGE · THE ELEMENTAL FRONTIER" : "PROGRESS RESTORED · THE FLAME REMEMBERS");
     setPhase("playing");
-  }, [setPhase]);
+  }, [hasSave, setPhase]);
+
+  useEffect(() => {
+    try {
+      setHasSave(Boolean(localStorage.getItem(SAVE_KEY)));
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    const save = () => {
+      if (phaseRef.current !== "playing") return;
+      try {
+        persistGame(gameRef.current);
+        setHasSave(true);
+      } catch {}
+    };
+    const timer = window.setInterval(save, 2500);
+    window.addEventListener("pagehide", save);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("pagehide", save);
+    };
+  }, []);
+
+  const resetSave = useCallback(() => {
+    try {
+      localStorage.removeItem(SAVE_KEY);
+    } catch {}
+    setHasSave(false);
+    startGame(true);
+  }, [startGame]);
 
   useEffect(() => {
     if (!toast) return;
@@ -587,6 +799,9 @@ export default function PixelRpgGame() {
     const ocean = new Image();
     const city = new Image();
     const city2 = new Image();
+    const fortified = new Image();
+    const goblinRegion = new Image();
+    const goblinUnits = new Image();
     const water = new Image();
     tiles.src = "/art/sprites/pixel-world-tileset.png";
     sprites.src = "/art/sprites/pixel-rpg-sprites.png";
@@ -595,9 +810,12 @@ export default function PixelRpgGame() {
     ocean.src = "/art/sprites/ocean-expansion.png";
     city.src = "/art/sprites/city-expansion.png";
     city2.src = "/art/sprites/city-infrastructure.png";
+    fortified.src = "/art/sprites/fortified-city-atlas.png";
+    goblinRegion.src = "/art/sprites/goblin-region-atlas.png";
+    goblinUnits.src = "/art/sprites/goblin-units-atlas.png";
     water.src = "/art/sprites/pure-water-tiles.png";
     let raf = 0;
-    const imageFor = (atlas?: Atlas | "sprites") => atlas === "forest" ? forest : atlas === "ocean" ? ocean : atlas === "city" ? city : atlas === "city2" ? city2 : atlas === "expansion" ? expansion : atlas === "sprites" ? sprites : tiles;
+    const imageFor = (atlas?: Atlas | "sprites") => atlas === "forest" ? forest : atlas === "ocean" ? ocean : atlas === "city" ? city : atlas === "city2" ? city2 : atlas === "fortified" ? fortified : atlas === "goblinRegion" ? goblinRegion : atlas === "goblinUnits" ? goblinUnits : atlas === "expansion" ? expansion : atlas === "sprites" ? sprites : tiles;
 
     const attack = () => {
       const game = gameRef.current;
@@ -621,7 +839,11 @@ export default function PixelRpgGame() {
             if (enemy.dropsMeat) game.inventory.meat++;
             game.player.gold += enemy.boss ? 100 : 12;
             game.player.shards += enemy.boss ? 5 : 1;
-            if (enemy.boss) {
+            if (enemy.id === 299) {
+              game.goblinReputation += 3;
+              game.inventory.scrap += 5;
+              setToast("WAR CHIEF BONK DEFEATED · 5 SCRAP · GOBLINS ARGUE OVER WHO IS CHIEF NOW");
+            } else if (enemy.boss) {
               game.questStage = 3;
               setToast("ROOT GUARDIAN DEFEATED · THE NORTHERN WAY IS CLEAR");
             } else if (game.kills === 3) {
@@ -674,8 +896,15 @@ export default function PixelRpgGame() {
         }
         return;
       }
-      const npc = NPCS.find((item) => Math.hypot(item.x - p.x, item.y - p.y) < 72);
+      const npc = NPCS.find((item) => !(item.id === "peeb" && game.goblinPrisonerFreed) && Math.hypot(item.x - p.x, item.y - p.y) < 72);
       if (npc) {
+        if (npc.id === "peeb" && !game.goblinPrisonerFreed) {
+          game.goblinPrisonerFreed = true;
+          game.goblinReputation++;
+          p.gold += 40;
+          setDialog({ name: "Peeb the Newly Free", line: "Freedom! Take these coins. I was saving them for chair number eighteen, but history has changed." });
+          return;
+        }
         setDialog({ name: npc.name, line: npc.line });
         if (npc.id === "elder" && game.questStage === 0) game.questStage = 1;
         return;
@@ -719,6 +948,24 @@ export default function PixelRpgGame() {
         setVendorOpen(action.vendor);
       } else if (action.action === "castle") {
         setDialog({ name: "Royal Guard Cael", line: "The Sunspire Castle is the heart of Dawnmarket. The throne hall remains sealed until the Root Guardian no longer threatens the northern roads." });
+      } else if (action.action === "cage") {
+        if (game.goblinPrisonerFreed) {
+          setToast("PEEB IS FREE · THE CAGE NOW HOLDS ONE VERY CONFUSED SPOON");
+        } else {
+          game.goblinPrisonerFreed = true;
+          game.goblinReputation++;
+          p.gold += 40;
+          setDialog({ name: "Peeb the Newly Free", line: "Freedom! Take these coins. I was saving them for chair number eighteen, but history has changed." });
+        }
+      } else if (action.action === "goblinShrine") {
+        p.hp = Math.min(p.maxHp, p.hp + 90);
+        p.energy = 100;
+        setToast("QUESTIONABLE GOBLIN MAGIC · MOSTLY RESTORED");
+      } else if (action.action === "bossLair") {
+        const warChief = game.enemies.find((enemy) => enemy.id === 299);
+        setDialog(warChief?.dead
+          ? { name: "Empty Chief's Throne", line: "The throne is unattended. Three goblins nearby are already campaigning on a platform of more snacks and fewer wolves." }
+          : { name: "Warning Sign (badly spelled)", line: "BIG CHIEF INSIDE. NO HEROES. DELIVERY GOBLINS USE OTHER DOOR." });
       }
     };
 
@@ -774,6 +1021,16 @@ export default function PixelRpgGame() {
         if (!blocked(game, nx, p.y)) p.x = nx;
         if (!blocked(game, p.x, ny)) p.y = ny;
 
+        for (const trap of GOBLIN_OBJECTS.filter((item) => item.action === "trap")) {
+          if (game.disarmedTraps.includes(trap.id) || Math.hypot(trap.x - p.x, trap.y - p.y) >= 33) continue;
+          game.disarmedTraps.push(trap.id);
+          if (p.invuln <= 0) {
+            p.hp -= Math.max(8, 28 - game.supplies.armorLevel * 4);
+            p.invuln = .8;
+          }
+          setToast("SNAP! · SIGN READS: DEFINITELY NOT A TRAP");
+        }
+
         if (game.area === "village") {
           const citizens = game.citizens ?? (game.citizens = makeCitizens());
           for (const citizen of citizens) {
@@ -824,7 +1081,8 @@ export default function PixelRpgGame() {
         const areaH = interior ? 14 * TILE : WORLD_H;
         game.camera.x += (Math.max(0, Math.min(areaW - W, p.x - W / 2)) - game.camera.x) * Math.min(1, dt * 7);
         game.camera.y += (Math.max(0, Math.min(areaH - H, p.y - H / 2)) - game.camera.y) * Math.min(1, dt * 7);
-        const boss = game.enemies.find((item) => item.boss)!;
+        const goblinRegionActive = p.x >= 57 * TILE && p.x <= 107 * TILE && p.y >= 41 * TILE && p.y < 63 * TILE;
+        const boss = game.enemies.find((item) => item.id === (goblinRegionActive ? 299 : 99))!;
         setHud({
           hp: Math.max(0, p.hp), energy: p.energy, gold: p.gold, shards: p.shards,
           kills: game.kills, quest: game.questStage, boss: Math.max(0, boss.hp),
@@ -833,8 +1091,10 @@ export default function PixelRpgGame() {
           area: game.area === "shop" ? "LANTERN & LEAF"
             : game.area === "home" ? "YOUR HOME"
               : p.y >= 63 * TILE ? "AZURE SEA"
-                : p.y >= 56 * TILE ? "AZURE COAST"
-                  : p.x < 46 * TILE && p.y > 38 * TILE ? "WHISPERING FOREST"
+                : goblinRegionActive
+                  ? p.x >= 96 * TILE ? "WAR CHIEF'S COMPOUND" : p.y >= 54 * TILE ? "RATTLEBONE YARD" : p.x < 76 * TILE ? "SNAGTOOTH MARKET" : "GOBLIN SHAMAN QUARTER"
+                  : p.y >= 56 * TILE ? "AZURE COAST"
+                    : p.x < 46 * TILE && p.y > 38 * TILE ? "WHISPERING FOREST"
                     : p.x >= 63 * TILE && p.x <= 105 * TILE && p.y >= 4 * TILE && p.y <= 40 * TILE
                       ? p.y < 11 * TILE ? "SUNSPIRE CASTLE" : p.y >= 20 * TILE && p.y <= 26 * TILE ? "DAWNMARKET BAZAAR" : "DAWNMARKET CITY"
                       : p.y < 14 * TILE && p.x > 45 * TILE ? "GUARDIAN GROVE"
@@ -846,7 +1106,7 @@ export default function PixelRpgGame() {
       c.clearRect(0, 0, W, H);
       c.fillStyle = "#142617";
       c.fillRect(0, 0, W, H);
-      if (tiles.complete && tiles.naturalWidth && sprites.complete && sprites.naturalWidth && expansion.complete && expansion.naturalWidth && forest.complete && ocean.complete && city.complete && city2.complete && water.complete) {
+      if (tiles.complete && tiles.naturalWidth && sprites.complete && sprites.naturalWidth && expansion.complete && expansion.naturalWidth && forest.complete && ocean.complete && city.complete && city2.complete && fortified.complete && fortified.naturalWidth && goblinRegion.complete && goblinRegion.naturalWidth && goblinUnits.complete && goblinUnits.naturalWidth && water.complete) {
         const game = gameRef.current;
         const cam = game.camera;
         if (game.area === "shop" || game.area === "home") {
@@ -882,7 +1142,13 @@ export default function PixelRpgGame() {
           const renderables: { y: number; draw: () => void }[] = [];
           for (const item of WORLD_OBJECTS) {
             if (item.action === "chest" && game.openedChest) continue;
-            renderables.push({ y: item.y, draw: () => drawCell(c, imageFor(item.atlas), item.cell, item.x - item.w / 2 - cam.x, item.y - item.h - cam.y, item.w, item.h) });
+            if (item.action === "cage" && game.goblinPrisonerFreed) continue;
+            renderables.push({ y: item.y, draw: () => {
+              c.save();
+              if (item.action === "trap" && game.disarmedTraps.includes(item.id)) c.globalAlpha = .35;
+              drawCell(c, imageFor(item.atlas), item.cell, item.x - item.w / 2 - cam.x, item.y - item.h - cam.y, item.w, item.h);
+              c.restore();
+            } });
           }
           for (const resource of game.resources) {
             if (resource.collected) continue;
@@ -892,7 +1158,11 @@ export default function PixelRpgGame() {
               drawCell(c, imageFor(resource.atlas ?? "expansion"), resource.cell, resource.x - size / 2 - cam.x, resource.y - size - cam.y, size, size);
             } });
           }
-          for (const npc of NPCS) renderables.push({ y: npc.y, draw: () => drawCell(c, sprites, npc.cell, npc.x - 34 - cam.x, npc.y - 68 - cam.y, 68, 68) });
+          for (const npc of NPCS) {
+            if (npc.id === "peeb" && game.goblinPrisonerFreed) continue;
+            const npcSize = npc.atlas === "goblinUnits" ? 74 : 68;
+            renderables.push({ y: npc.y, draw: () => drawCell(c, imageFor(npc.atlas ?? "sprites"), npc.cell, npc.x - npcSize / 2 - cam.x, npc.y - npcSize - cam.y, npcSize, npcSize) });
+          }
           for (const citizen of game.citizens ?? []) renderables.push({ y: citizen.y, draw: () => {
             const walking = Math.hypot(citizen.targetX - citizen.x, citizen.targetY - citizen.y) > 12 && citizen.pause <= 0;
             const bob = walking ? Math.sin(game.time * 9 + citizen.id) * 2 : 0;
@@ -900,7 +1170,7 @@ export default function PixelRpgGame() {
           } });
           for (const enemy of game.enemies) {
             if (enemy.dead) continue;
-            const size = enemy.boss ? 132 : enemy.atlas === "forest" && enemy.cell <= 5 ? 78 : 60;
+            const size = enemy.boss ? 132 : enemy.atlas === "goblinUnits" ? (enemy.cell >= 8 && enemy.cell <= 11 ? 92 : 70) : enemy.atlas === "forest" && enemy.cell <= 5 ? 78 : 60;
             renderables.push({ y: enemy.y, draw: () => {
               c.save();
               if (enemy.flash > 0) c.globalAlpha = .45;
@@ -966,7 +1236,8 @@ export default function PixelRpgGame() {
           <small>AN ORIGINAL PIXEL ACTION RPG</small>
           <h1>ABYSS <span>WALKER</span></h1>
           <p>The last quiet flame returns to Tranquil Village.</p>
-          <button onClick={startGame}>BEGIN ADVENTURE</button>
+          <button onClick={() => startGame(false)}>{hasSave ? "CONTINUE ADVENTURE" : "BEGIN ADVENTURE"}</button>
+          {hasSave && <button className="pixel-new-journey" onClick={resetSave}>NEW JOURNEY · ERASE SAVE</button>}
           <em>WASD / ARROWS · MOVE &nbsp; J / SPACE · ATTACK &nbsp; E · INTERACT</em>
         </section>
       )}
@@ -1054,9 +1325,16 @@ export default function PixelRpgGame() {
       {vendorOpen && (() => {
         const vendorName = vendorOpen === "weapons" ? "IRON & EMBER"
           : vendorOpen === "potions" ? "THE VIOLET VIAL"
-            : vendorOpen === "fish" ? "TIDECATCHER'S STALL" : "SUNBAKED PROVISIONS";
+            : vendorOpen === "fish" ? "TIDECATCHER'S STALL"
+              : vendorOpen === "goblin" ? "GRIBBLE'S TOTALLY LEGAL GOODS" : "SUNBAKED PROVISIONS";
         const wares: { kind: "potion" | "bait" | "spear" | "armor" | "meal"; name: string; copy: string; cost: number }[] =
-          vendorOpen === "weapons"
+          vendorOpen === "goblin"
+            ? [
+              { kind: "potion", name: "BOTTLED GREEN STUFF", copy: "Gribble promises it is a potion", cost: 20 },
+              { kind: "bait", name: "PRE-LOVED WORMS ×3", copy: "The worms have stories", cost: 12 },
+              { kind: "meal", name: "CHEF NIB'S MYSTERY SOUP", copy: "Restores health, energy and doubt", cost: 18 },
+            ]
+            : vendorOpen === "weapons"
             ? [
               { kind: "spear", name: `TEMPERED SPEAR +${hud.supplies.spearLevel + 1}`, copy: "+18 attack damage", cost: 60 + hud.supplies.spearLevel * 45 },
               { kind: "armor", name: `CITY ARMOR +${hud.supplies.armorLevel + 1}`, copy: "+30 maximum health · damage resistance", cost: 75 + hud.supplies.armorLevel * 50 },
@@ -1078,7 +1356,7 @@ export default function PixelRpgGame() {
         return <section className="pixel-vendor">
           <div>
             <button className="pixel-cooking-close" onClick={() => setVendorOpen(null)}>×</button>
-            <small>DAWNMARKET MERCHANT</small><h2>{vendorName}</h2>
+            <small>{vendorOpen === "goblin" ? "SNAGTOOTH TRADING PIT" : "DAWNMARKET MERCHANT"}</small><h2>{vendorName}</h2>
             <p>Your purse: <b>● {hud.gold} gold</b></p>
             <div className="pixel-vendor-wares">
               {wares.map((ware) => <article key={ware.name}>
@@ -1099,6 +1377,7 @@ export default function PixelRpgGame() {
             <i className="river">MIRROR RIVER</i><i className="grove">GUARDIAN GROVE</i>
             <i className="forest">WHISPERING FOREST<br />HUNTING · GATHERING</i>
             <i className="city">DAWNMARKET CITY<br />SHOPS · NPCS</i>
+            <i className="goblin">SNAGTOOTH ENCAMPMENT<br />MARKET · PRISON · WAR CHIEF</i>
             <i className="coast">AZURE COAST<br />FISHING DOCK</i>
             <i className="ocean">AZURE SEA<br />BOAT ROUTE</i><i className="cache">HIDDEN CACHE</i>
             <b style={{ left: `${Math.max(2, Math.min(96, hud.position.x / WORLD_W * 100))}%`, top: `${Math.max(3, Math.min(92, hud.position.y / WORLD_H * 100))}%` }}>◆ YOU</b>
@@ -1106,7 +1385,7 @@ export default function PixelRpgGame() {
           <p>A single connected world: village life, your homestead, wild forest, market city, river crossings, coast and open-water routes.</p>
         </section>
       )}
-      {phase === "dead" && <section className="pixel-dead"><h2>THE FLAME FADES</h2><button onClick={startGame}>TRY AGAIN</button></section>}
+      {phase === "dead" && <section className="pixel-dead"><h2>THE FLAME FADES</h2><button onClick={() => startGame(false)}>RETURN TO LAST SAVE</button></section>}
     </main>
   );
 }

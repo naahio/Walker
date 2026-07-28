@@ -209,6 +209,7 @@ button { font: inherit; }
 .pixel-title h1 span { color: #e6a93f; }
 .pixel-title p { color: #c8d6ad; font-weight: 700; }
 .pixel-title button, .pixel-dead button { margin: 24px 0 14px; padding: 15px 28px; border: 4px ridge #d7a640; background: #6f321c; color: #fff0b2; box-shadow: 0 5px #2f150e; font: 900 15px "Courier New", monospace; cursor: pointer; }
+.pixel-title .pixel-new-journey { margin: 0 0 18px; padding: 9px 17px; border-color: #76644a; background: #241b15; color: #c8b99b; box-shadow: 0 3px #0c0907; font-size: 9px; }
 .pixel-title em { font-size: 11px; color: #a7ae95; font-style: normal; }
 .pixel-hud { position: absolute; z-index: 5; left: 12px; top: 12px; display: grid; grid-template-columns: 62px 245px; gap: 9px; padding: 7px 10px 8px 7px; border: 3px ridge #8f7138; border-radius: 8px; background: rgba(34,23,15,.94); box-shadow: 4px 5px 0 rgba(0,0,0,.55); }
 .pixel-portrait { width: 56px; height: 56px; display: grid; place-items: center; border: 3px solid #d3a83f; border-radius: 50%; background: #111c13; color: #ffdc73; font-size: 29px; }
@@ -311,6 +312,7 @@ button { font: inherit; }
 .pixel-map-grid .home { left: 35%; top: 59%; background: #f3c66d; }
 .pixel-map-grid .forest { left: 4%; top: 25%; background: #7fa461; }
 .pixel-map-grid .city { right: 6%; top: 32%; background: #d0a368; }
+.pixel-map-grid .goblin { right: 3%; top: 57%; background: #5d4930; color: #fff0bd; border-color: #b94d28; box-shadow: 0 0 12px rgba(210,75,35,.35); }
 .pixel-map-grid .coast { right: 18%; bottom: 7%; background: #92c9bd; }
 .pixel-map-grid .ocean { left: 43%; bottom: 3%; background: #76a9bf; }
 .pixel-map-grid .cache { left: 8%; bottom: 6%; }
