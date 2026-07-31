@@ -6,7 +6,7 @@ type Phase = "title" | "select" | "playing" | "dead";
 type Area = "village" | "shop" | "home";
 type Direction = "down" | "left" | "right" | "up";
 type HeroId = "warrior" | "archer";
-type Atlas = "tiles" | "expansion" | "forest" | "ocean" | "city" | "city2" | "fortified" | "goblinRegion" | "goblinUnits" | "desertRegion" | "desertUnits" | "desertV2" | "farmRegion" | "farmCrops" | "npcs";
+type Atlas = "tiles" | "expansion" | "forest" | "ocean" | "city" | "city2" | "fortified" | "goblinRegion" | "goblinUnits" | "desertRegion" | "desertUnits" | "farmRegion" | "farmCrops" | "npcs";
 type VendorId = "weapons" | "potions" | "fish" | "food" | "goblin";
 type CropKind = "carrot" | "potato" | "tomato" | "onion" | "cabbage" | "strawberry" | "pumpkin" | "corn";
 type FarmStyle = "homestead" | "orchard" | "market";
@@ -161,11 +161,13 @@ const CROP_META: Record<CropKind, { label: string; icon: string; growMs: number;
 };
 
 function makeFarmPlots(): FarmPlot[] {
-  return [
-    [74, 50, 1], [77, 50, 1], [74, 53, 1], [77, 53, 1],
-    [83, 50, 2], [86, 50, 2], [89, 50, 2], [83, 53, 2], [86, 53, 2], [89, 53, 2],
-    [94, 50, 3], [97, 50, 3], [100, 50, 3], [94, 53, 3], [97, 53, 3], [100, 53, 3],
-    [83, 58, 4], [86, 58, 4], [89, 58, 4], [92, 58, 4], [83, 61, 4], [86, 61, 4], [89, 61, 4], [92, 61, 4],
+  const plots: FarmPlot[] = [
+    // The four starter beds now live beside the player's house. Each quest
+    // expansion visibly clears another neighbouring field.
+    [36, 30, 1], [38, 30, 1], [36, 32, 1], [38, 32, 1],
+    [41, 30, 2], [43, 30, 2], [45, 30, 2], [41, 32, 2], [43, 32, 2], [45, 32, 2],
+    [36, 36, 3], [38, 36, 3], [40, 36, 3], [36, 38, 3], [38, 38, 3], [40, 38, 3],
+    [43, 36, 4], [45, 36, 4], [47, 36, 4], [49, 36, 4], [43, 38, 4], [45, 38, 4], [47, 38, 4], [49, 38, 4],
   ].map(([x, y, unlockedAt], index) => ({
     id: `farm-plot-${index}`,
     x: x * TILE,
@@ -175,6 +177,26 @@ function makeFarmPlots(): FarmPlot[] {
     plantedAt: 0,
     watered: false,
   }));
+  const villageFields = [
+    [72, 48, 8, 7], [81, 48, 10, 7], [92, 48, 10, 7], [81, 56, 14, 7],
+  ] as const;
+  const villageCrops: CropKind[] = ["carrot", "potato", "tomato", "pumpkin"];
+  for (const [startX, startY, width, height] of villageFields) {
+    for (let y = startY; y < startY + height; y++) for (let x = startX; x < startX + width; x++) {
+      const planted = (x + y) % 2 === 0;
+      const crop = planted ? villageCrops[Math.abs(x * 3 + y) % villageCrops.length] : null;
+      plots.push({
+        id: `village-plot-${x}-${y}`,
+        x: x * TILE,
+        y: y * TILE,
+        unlockedAt: 1,
+        crop,
+        plantedAt: crop ? Date.now() - CROP_META[crop].growMs : 0,
+        watered: Boolean(crop),
+      });
+    }
+  }
+  return plots;
 }
 
 function cropStage(plot: FarmPlot, now = Date.now()) {
@@ -221,10 +243,10 @@ const NPCS: Actor[] = [
   { id: "wizzle", atlas: "goblinUnits", cell: 13, name: "ويزل طبيب الأرواح", x: 142 * TILE, y: 47 * TILE, line: "الأرواح تقول إن بطلاً وصل. وتقول أيضاً إنني تركت القدر فوق النار. نبوءتان سيئتان." },
   { id: "bork", atlas: "goblinUnits", cell: 0, name: "بورك مفتش الفخاخ", x: 122 * TILE, y: 57 * TILE, line: "كل الفخاخ اجتازت الفحص. فحصتها من مسافة آمنة جداً." },
   { id: "peeb", atlas: "goblinUnits", cell: 14, name: "بيب السجين", x: 152 * TILE, y: 56 * TILE, line: "سجنوني لأنني سألت لماذا يحتاج الزعيم إلى سبعة عشر كرسياً. افتح القفص قبل أن يشتري الثامن عشر." },
-  { id: "zahir", atlas: "desertUnits", cell: 11, name: "الأمير زاهر", x: 158 * TILE, y: 16 * TILE, line: "أيقظ مسلات الشمس الثلاث، واضغط الأختام المرآتية، واهزم حراس الكثبان، ثم ادخل القبر الملكي." },
-  { id: "safi", atlas: "desertUnits", cell: 4, name: "صافي راعية القافلة", x: 146 * TILE, y: 28 * TILE, line: "تعبر القوافل الكثبان عند الفجر. الماء والظل والرمح الحاد أثمن من الذهب." },
+  { id: "zahir", atlas: "desertUnits", cell: 2, name: "الأمير زاهر", x: 158 * TILE, y: 16 * TILE, line: "أيقظ مسلات الشمس الثلاث، واضغط الأختام المرآتية، واهزم حراس الكثبان، ثم ادخل القبر الملكي." },
+  { id: "safi", atlas: "desertUnits", cell: 10, name: "صافي راعية القافلة", x: 146 * TILE, y: 28 * TILE, line: "تعبر القوافل الكثبان عند الفجر. الماء والظل والرمح الحاد أثمن من الذهب." },
   { id: "nadia", atlas: "desertUnits", cell: 3, name: "نادية كاهنة الشمس", x: 169 * TILE, y: 30 * TILE, line: "تستجيب المسلات أولاً، ثم أختام الضغط. بعد ذلك فقط سيسمع القبر خطواتك." },
-  { id: "rami", atlas: "desertUnits", cell: 0, name: "رامي حارس الواحة", x: 155 * TILE, y: 35 * TILE, line: "تحمي الأحجار القديمة الواحة، لكن ثلاثة حراس يجوبون الكثبان: العملاق والملك المحنط وملكة العقارب." },
+  { id: "rami", atlas: "desertUnits", cell: 1, name: "رامي حارس الواحة", x: 155 * TILE, y: 35 * TILE, line: "تحمي الأحجار القديمة الواحة، لكن ثلاثة حراس يجوبون الكثبان: العملاق والملك المحنط وملكة العقارب." },
 ];
 
 // Exact role locations in the clear city/farm character sheet. Goblin and desert
@@ -276,8 +298,10 @@ const HOME_OBJECTS: WorldObject[] = [
 ];
 
 const EXPANSION_OBJECTS: WorldObject[] = [
-  { id: "player-home", atlas: "expansion", cell: 12, x: 32 * TILE, y: 30 * TILE, w: 180, h: 178, solid: true, action: "home" },
-  { id: "home-garden", atlas: "expansion", cell: 14, x: 36 * TILE, y: 31 * TILE, w: 148, h: 125, solid: true },
+  { id: "player-home", atlas: "expansion", cell: 12, x: 32 * TILE, y: 30 * TILE, w: 215, h: 212, solid: true, action: "home" },
+  { id: "home-well", atlas: "farmRegion", cell: 8, x: 28 * TILE, y: 31 * TILE, w: 118, h: 118, solid: true, collision: { w: 70, h: 28 }, action: "farmWell" },
+  { id: "home-produce-stand", atlas: "farmRegion", cell: 9, x: 32 * TILE, y: 35 * TILE, w: 155, h: 125, solid: true, collision: { w: 105, h: 27 }, action: "farmStand" },
+  { id: "home-field-gate", atlas: "farmRegion", cell: 11, x: 35 * TILE, y: 34 * TILE, w: 150, h: 112 },
   { id: "river-dock", atlas: "ocean", cell: 8, x: 53 * TILE, y: 44 * TILE, w: 135, h: 140, action: "boat" },
   { id: "coast-dock", atlas: "ocean", cell: 8, x: 78 * TILE, y: 62 * TILE, w: 135, h: 140, action: "boat" },
   ...[[99, 17], [66, 34], [20, 50], [11, 53], [30, 55]].map(([tx, ty], i) => ({
@@ -424,40 +448,39 @@ const GOBLIN_OBJECTS: WorldObject[] = [
 ];
 
 const DESERT_OBJECTS: WorldObject[] = [
-  { id: "zahar-palace", atlas: "desertRegion", cell: 4, x: 160 * TILE, y: 13 * TILE, w: 390, h: 350, solid: true, collision: { w: 250, h: 64 }, action: "castle" },
-  { id: "sun-temple", atlas: "desertRegion", cell: 5, x: 172 * TILE, y: 20 * TILE, w: 270, h: 255, solid: true, collision: { w: 174, h: 48 }, action: "shrine" },
-  { id: "desert-inn", atlas: "desertRegion", cell: 6, x: 147 * TILE, y: 20 * TILE, w: 245, h: 215, solid: true, collision: { w: 165, h: 42 }, action: "vendor", vendor: "food" },
-  { id: "desert-gate", atlas: "desertRegion", cell: 7, x: 141 * TILE, y: 25 * TILE, w: 260, h: 220, solid: true, collision: { w: 58, h: 150 } },
-  { id: "desert-watch-north", atlas: "desertRegion", cell: 8, x: 146 * TILE, y: 9 * TILE, w: 145, h: 205, solid: true, collision: { w: 74, h: 38 } },
-  { id: "desert-watch-south", atlas: "desertRegion", cell: 8, x: 176 * TILE, y: 37 * TILE, w: 145, h: 205, solid: true, collision: { w: 74, h: 38 } },
-  { id: "sun-obelisk-west", atlas: "desertRegion", cell: 9, x: 149 * TILE, y: 32 * TILE, w: 125, h: 175, solid: true, collision: { w: 54, h: 38 }, action: "desertObelisk" },
-  { id: "sun-obelisk-crown", atlas: "desertRegion", cell: 9, x: 159 * TILE, y: 22 * TILE, w: 125, h: 175, solid: true, collision: { w: 54, h: 38 }, action: "desertObelisk" },
-  { id: "sun-obelisk-east", atlas: "desertRegion", cell: 9, x: 171 * TILE, y: 31 * TILE, w: 125, h: 175, solid: true, collision: { w: 54, h: 38 }, action: "desertObelisk" },
-  { id: "sun-plate-west", atlas: "desertRegion", cell: 11, x: 151 * TILE, y: 36 * TILE, w: 105, h: 70, action: "desertPlate" },
-  { id: "sun-plate-crown", atlas: "desertRegion", cell: 11, x: 161 * TILE, y: 27 * TILE, w: 105, h: 70, action: "desertPlate" },
-  { id: "sun-plate-east", atlas: "desertRegion", cell: 11, x: 170 * TILE, y: 35 * TILE, w: 105, h: 70, action: "desertPlate" },
-  { id: "tomb-of-burning-crown", atlas: "desertRegion", cell: 15, x: 174 * TILE, y: 10 * TILE, w: 290, h: 245, solid: true, collision: { w: 175, h: 46 }, action: "desertTomb" },
+  { id: "desert-gate", atlas: "desertRegion", cell: 0, x: 141 * TILE, y: 25 * TILE, w: 300, h: 255, solid: true, collision: { w: 72, h: 170 } },
+  { id: "zahar-palace", atlas: "desertRegion", cell: 3, x: 160 * TILE, y: 13 * TILE, w: 390, h: 350, solid: true, collision: { w: 250, h: 64 }, action: "castle" },
+  { id: "sun-temple", atlas: "desertRegion", cell: 3, x: 172 * TILE, y: 20 * TILE, w: 285, h: 270, solid: true, collision: { w: 174, h: 48 }, action: "shrine" },
+  { id: "desert-inn", atlas: "desertRegion", cell: 5, x: 147 * TILE, y: 20 * TILE, w: 230, h: 190, solid: true, collision: { w: 155, h: 38 }, action: "vendor", vendor: "food" },
+  { id: "desert-watch-north", atlas: "desertRegion", cell: 1, x: 146 * TILE, y: 9 * TILE, w: 160, h: 220, solid: true, collision: { w: 82, h: 38 } },
+  { id: "desert-watch-south", atlas: "desertRegion", cell: 1, x: 176 * TILE, y: 37 * TILE, w: 160, h: 220, solid: true, collision: { w: 82, h: 38 } },
+  ...[[151, 17], [166, 17], [153, 25], [168, 25]].map(([tx, ty], index) => ({
+    id: `zahar-house-${index}`, atlas: "desertRegion" as const, cell: 2, x: tx * TILE, y: ty * TILE, w: 185, h: 170, solid: true, collision: { w: 118, h: 34 },
+  })),
+  { id: "sun-obelisk-west", atlas: "desertRegion", cell: 10, x: 149 * TILE, y: 32 * TILE, w: 118, h: 175, solid: true, collision: { w: 50, h: 34 }, action: "desertObelisk" },
+  { id: "sun-obelisk-crown", atlas: "desertRegion", cell: 10, x: 159 * TILE, y: 22 * TILE, w: 118, h: 175, solid: true, collision: { w: 50, h: 34 }, action: "desertObelisk" },
+  { id: "sun-obelisk-east", atlas: "desertRegion", cell: 10, x: 171 * TILE, y: 31 * TILE, w: 118, h: 175, solid: true, collision: { w: 50, h: 34 }, action: "desertObelisk" },
+  { id: "sun-plate-west", atlas: "desertRegion", cell: 10, x: 151 * TILE, y: 36 * TILE, w: 105, h: 52, action: "desertPlate" },
+  { id: "sun-plate-crown", atlas: "desertRegion", cell: 10, x: 161 * TILE, y: 27 * TILE, w: 105, h: 52, action: "desertPlate" },
+  { id: "sun-plate-east", atlas: "desertRegion", cell: 10, x: 170 * TILE, y: 35 * TILE, w: 105, h: 52, action: "desertPlate" },
+  { id: "tomb-of-burning-crown", atlas: "desertRegion", cell: 11, x: 174 * TILE, y: 10 * TILE, w: 300, h: 255, solid: true, collision: { w: 175, h: 46 }, action: "desertTomb" },
   ...[[145, 13], [154, 35], [166, 9], [176, 27]].map(([tx, ty], index) => ({
-    id: `desert-ruin-${index}`, atlas: "desertRegion" as const, cell: 10, x: tx * TILE, y: ty * TILE, w: 160, h: 145, solid: true, collision: { w: 94, h: 30 },
+    id: `desert-ruin-${index}`, atlas: "desertRegion" as const, cell: 12, x: tx * TILE, y: ty * TILE, w: 165, h: 150, solid: true, collision: { w: 94, h: 30 },
   })),
   ...[[145, 29], [153, 17], [166, 37], [175, 24]].map(([tx, ty], index) => ({
-    id: `caravan-camp-${index}`, atlas: "desertRegion" as const, cell: 12, x: tx * TILE, y: ty * TILE, w: 185, h: 145, solid: true, collision: { w: 115, h: 28 },
+    id: `caravan-camp-${index}`, atlas: "desertRegion" as const, cell: index % 2 ? 5 : 4, x: tx * TILE, y: ty * TILE, w: 185, h: 150, solid: true, collision: { w: 112, h: 28 },
   })),
   ...[[149, 38], [158, 36], [171, 38], [176, 15]].map(([tx, ty], index) => ({
-    id: `zahar-oasis-${index}`, atlas: "desertRegion" as const, cell: 13, x: tx * TILE, y: ty * TILE, w: 170, h: 150, solid: true, collision: { w: 70, h: 32 },
+    id: `zahar-oasis-${index}`, atlas: "desertRegion" as const, cell: 8, x: tx * TILE, y: ty * TILE, w: 180, h: 160, solid: true, collision: { w: 68, h: 30 },
   })),
-  ...[[143, 8], [163, 31]].map(([tx, ty], index) => ({
-    id: `sandship-wreck-${index}`, atlas: "desertRegion" as const, cell: 14, x: tx * TILE, y: ty * TILE, w: 230, h: 170, solid: true, collision: { w: 145, h: 34 },
+  ...[[143, 8], [163, 31], [176, 18]].map(([tx, ty], index) => ({
+    id: `wind-rock-${index}`, atlas: "desertRegion" as const, cell: 13, x: tx * TILE, y: ty * TILE, w: 150, h: 125, solid: true, collision: { w: 92, h: 28 },
   })),
-  ...[
-    [0, 141, 18, 92, 145], [1, 145, 37, 94, 145], [2, 156, 38, 118, 148], [3, 168, 34, 96, 132],
-    [4, 153, 29, 78, 92], [8, 143, 33, 72, 96], [9, 164, 8, 102, 92], [10, 176, 18, 76, 80],
-    [11, 147, 10, 82, 76], [12, 158, 8, 84, 72], [13, 167, 27, 102, 68], [14, 174, 38, 80, 67],
-    [15, 152, 38, 82, 74], [16, 144, 24, 138, 108], [17, 155, 32, 145, 112], [18, 169, 18, 145, 112],
-    [19, 175, 29, 126, 105], [20, 150, 18, 72, 82], [21, 166, 35, 70, 76], [22, 160, 30, 125, 88],
-  ].map(([cell, tx, ty, w, h], index) => ({
-    id: `zahar-detail-${index}`, atlas: "desertV2" as const, cell, x: tx * TILE, y: ty * TILE, w, h,
-    solid: cell >= 16 && cell <= 19, collision: cell >= 16 && cell <= 19 ? { w: w * .62, h: 24 } : undefined,
+  ...[[144, 34], [152, 38], [164, 8], [168, 34], [175, 29]].map(([tx, ty], index) => ({
+    id: `desert-cactus-${index}`, atlas: "desertRegion" as const, cell: 14, x: tx * TILE, y: ty * TILE, w: 96, h: 105,
+  })),
+  ...[[144, 24], [157, 31], [169, 18], [175, 35]].map(([tx, ty], index) => ({
+    id: `desert-sign-${index}`, atlas: "desertRegion" as const, cell: index % 2 ? 15 : 7, x: tx * TILE, y: ty * TILE, w: 88, h: 92,
   })),
 ];
 
@@ -738,17 +761,26 @@ function desertTileAt(tx: number, ty: number) {
 }
 
 function farmFieldLevelAt(tx: number, ty: number) {
-  if (tx >= 72 && tx <= 79 && ty >= 48 && ty <= 54) return 1;
-  if (tx >= 81 && tx <= 90 && ty >= 48 && ty <= 54) return 2;
-  if (tx >= 92 && tx <= 101 && ty >= 48 && ty <= 54) return 3;
-  if (tx >= 81 && tx <= 94 && ty >= 56 && ty <= 62) return 4;
+  if (tx >= 35 && tx <= 39 && ty >= 29 && ty <= 33) return 1;
+  if (tx >= 40 && tx <= 46 && ty >= 29 && ty <= 33) return 2;
+  if (tx >= 35 && tx <= 41 && ty >= 35 && ty <= 39) return 3;
+  if (tx >= 42 && tx <= 50 && ty >= 35 && ty <= 39) return 4;
   return 0;
 }
 
 function farmTileAt(tx: number, ty: number, farmLevel: number) {
-  const path = (tx >= 69 && tx <= 71) || (ty >= 44 && ty <= 47);
   const fieldLevel = farmFieldLevelAt(tx, ty);
-  return path ? 3 : fieldLevel > 0 && fieldLevel <= farmLevel ? 0 : -1;
+  return fieldLevel > 0 && fieldLevel <= farmLevel ? 0 : -1;
+}
+
+function villageFarmTileAt(tx: number, ty: number) {
+  const irrigationPath = (tx >= 69 && tx <= 71) || (ty >= 44 && ty <= 47);
+  if (irrigationPath) return 3;
+  if (tx >= 72 && tx <= 79 && ty >= 48 && ty <= 54) return 0;
+  if (tx >= 81 && tx <= 90 && ty >= 48 && ty <= 54) return 0;
+  if (tx >= 92 && tx <= 101 && ty >= 48 && ty <= 54) return 0;
+  if (tx >= 81 && tx <= 94 && ty >= 56 && ty <= 62) return 0;
+  return -1;
 }
 
 function rectHit(cx: number, cy: number, radius: number, object: WorldObject) {
@@ -881,7 +913,10 @@ function restoreGame() {
     game.farmStyle = saved.farmStyle === "orchard" || saved.farmStyle === "market" ? saved.farmStyle : "homestead";
     if (Array.isArray(saved.farmPlots)) {
       const savedPlots = new Map(saved.farmPlots.map((plot) => [plot.id, plot]));
-      game.farmPlots = game.farmPlots.map((plot) => ({ ...plot, ...savedPlots.get(plot.id) }));
+      game.farmPlots = game.farmPlots.map((plot) => {
+        const savedPlot = savedPlots.get(plot.id);
+        return savedPlot ? { ...plot, ...savedPlot, x: plot.x, y: plot.y, unlockedAt: plot.unlockedAt } : plot;
+      });
     }
     if (saved.seeds) game.seeds = { ...game.seeds, ...saved.seeds };
     if (saved.produce) game.produce = { ...game.produce, ...saved.produce };
@@ -986,72 +1021,6 @@ function drawClearNpc(c: CanvasRenderingContext2D, image: HTMLCanvasElement, cel
   c.drawImage(image, crop.x, crop.y, crop.w, crop.h, x, y, w, h);
 }
 
-const ZAHAR_DETAIL_CROPS: NpcCrop[] = [
-  { x: 620, y: 606, w: 76, h: 143 }, { x: 694, y: 606, w: 78, h: 143 },
-  { x: 772, y: 606, w: 84, h: 143 }, { x: 855, y: 606, w: 88, h: 143 },
-  { x: 941, y: 606, w: 72, h: 143 }, { x: 620, y: 686, w: 78, h: 110 },
-  { x: 694, y: 686, w: 88, h: 110 }, { x: 780, y: 686, w: 80, h: 110 },
-  { x: 855, y: 686, w: 72, h: 110 }, { x: 930, y: 686, w: 83, h: 110 },
-  { x: 620, y: 765, w: 76, h: 88 }, { x: 695, y: 765, w: 78, h: 88 },
-  { x: 772, y: 765, w: 82, h: 88 }, { x: 854, y: 765, w: 78, h: 88 },
-  { x: 928, y: 765, w: 83, h: 88 }, { x: 1000, y: 765, w: 80, h: 88 },
-  { x: 1018, y: 600, w: 105, h: 96 }, { x: 1121, y: 600, w: 109, h: 96 },
-  { x: 1228, y: 600, w: 111, h: 96 }, { x: 1337, y: 600, w: 101, h: 96 },
-  { x: 1398, y: 594, w: 72, h: 102 }, { x: 1466, y: 594, w: 68, h: 102 },
-  { x: 1018, y: 682, w: 112, h: 83 },
-  { x: 1252, y: 365, w: 92, h: 92 }, { x: 1344, y: 365, w: 101, h: 92 },
-  { x: 1445, y: 365, w: 88, h: 92 }, { x: 1252, y: 468, w: 92, h: 92 },
-  { x: 1344, y: 468, w: 101, h: 92 }, { x: 1445, y: 468, w: 88, h: 92 },
-];
-
-function prepareZaharDetails(image: HTMLImageElement) {
-  const canvas = document.createElement("canvas");
-  canvas.width = image.naturalWidth;
-  canvas.height = image.naturalHeight;
-  const context = canvas.getContext("2d", { willReadFrequently: true });
-  if (!context) return canvas;
-  context.drawImage(image, 0, 0);
-  const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
-  for (const crop of ZAHAR_DETAIL_CROPS) {
-    const visited = new Uint8Array(crop.w * crop.h);
-    const queue: number[] = [];
-    const seed = (localX: number, localY: number) => {
-      const index = localY * crop.w + localX;
-      if (visited[index]) return;
-      const offset = ((crop.y + localY) * canvas.width + crop.x + localX) * 4;
-      if (Math.max(pixels.data[offset], pixels.data[offset + 1], pixels.data[offset + 2]) >= 38) return;
-      visited[index] = 1;
-      queue.push(index);
-    };
-    for (let x = 0; x < crop.w; x++) { seed(x, 0); seed(x, crop.h - 1); }
-    for (let y = 0; y < crop.h; y++) { seed(0, y); seed(crop.w - 1, y); }
-    for (let head = 0; head < queue.length; head++) {
-      const current = queue[head];
-      const localX = current % crop.w;
-      const localY = Math.floor(current / crop.w);
-      const offset = ((crop.y + localY) * canvas.width + crop.x + localX) * 4;
-      pixels.data[offset + 3] = 0;
-      if (localX > 0) seed(localX - 1, localY);
-      if (localX + 1 < crop.w) seed(localX + 1, localY);
-      if (localY > 0) seed(localX, localY - 1);
-      if (localY + 1 < crop.h) seed(localX, localY + 1);
-    }
-  }
-  context.clearRect(0, 0, canvas.width, canvas.height);
-  context.putImageData(pixels, 0, 0);
-  return canvas;
-}
-
-function drawZaharDetail(c: CanvasRenderingContext2D, image: HTMLCanvasElement, item: WorldObject, camera: { x: number; y: number }) {
-  const crop = ZAHAR_DETAIL_CROPS[item.cell % ZAHAR_DETAIL_CROPS.length];
-  c.drawImage(image, crop.x, crop.y, crop.w, crop.h, item.x - item.w / 2 - camera.x, item.y - item.h - camera.y, item.w, item.h);
-}
-
-function drawZaharCrop(c: CanvasRenderingContext2D, image: HTMLCanvasElement, cell: number, x: number, y: number, w: number, h: number) {
-  const crop = ZAHAR_DETAIL_CROPS[cell % ZAHAR_DETAIL_CROPS.length];
-  c.drawImage(image, crop.x, crop.y, crop.w, crop.h, x, y, w, h);
-}
-
 function prepareNpcAtlas(image: HTMLImageElement) {
   const columns = 32;
   const rows = 14;
@@ -1072,6 +1041,7 @@ function prepareNpcAtlas(image: HTMLImageElement) {
     const mask = new Uint8Array(cellWidth * cellHeight);
     const keep = new Uint8Array(cellWidth * cellHeight);
     const visited = new Uint8Array(cellWidth * cellHeight);
+    const components: number[][] = [];
     for (let y = 0; y < cellHeight; y++) for (let x = 0; x < cellWidth; x++) {
       const source = ((top + y) * canvas.width + left + x) * 4;
       const brightness = Math.max(pixels.data[source], pixels.data[source + 1], pixels.data[source + 2]);
@@ -1099,8 +1069,14 @@ function prepareNpcAtlas(image: HTMLImageElement) {
           }
         }
       }
-      if (component.length >= 12) component.forEach((index) => { keep[index] = 1; });
+      if (component.length >= 12) components.push(component);
     }
+    // The reference image looks like a grid, but several neighbouring figures
+    // extend into the same nominal cell. Keeping every bright component caused
+    // spare heads, feet and props to be rendered beside an otherwise valid NPC.
+    // The body is always the dominant connected component in a pedestrian cell.
+    const figure = components.sort((a, b) => b.length - a.length)[0];
+    figure?.forEach((index) => { keep[index] = 1; });
     for (let y = 0; y < cellHeight; y++) for (let x = 0; x < cellWidth; x++) {
       const source = ((top + y) * canvas.width + left + x) * 4;
       pixels.data[source + 3] = keep[y * cellWidth + x] ? 255 : 0;
@@ -1511,7 +1487,6 @@ export default function PixelRpgGame() {
     const goblinUnits = new Image();
     const desertRegion = new Image();
     const desertUnits = new Image();
-    const desertV2 = new Image();
     const farmRegion = new Image();
     const farmCrops = new Image();
     const clearNpcs = new Image();
@@ -1521,9 +1496,7 @@ export default function PixelRpgGame() {
     const archerDirectional = new Image();
     const water = new Image();
     let clearNpcAtlas = document.createElement("canvas");
-    let zaharDetailAtlas = document.createElement("canvas");
     clearNpcs.addEventListener("load", () => { clearNpcAtlas = prepareNpcAtlas(clearNpcs); }, { once: true });
-    desertV2.addEventListener("load", () => { zaharDetailAtlas = prepareZaharDetails(desertV2); }, { once: true });
     tiles.src = "/art/sprites/pixel-world-tileset.png";
     sprites.src = "/art/sprites/pixel-rpg-sprites.png";
     expansion.src = "/art/sprites/pixel-world-expansion.png";
@@ -1534,9 +1507,8 @@ export default function PixelRpgGame() {
     fortified.src = "/art/sprites/fortified-city-atlas.png";
     goblinRegion.src = "/art/sprites/goblin-region-atlas.png";
     goblinUnits.src = "/art/sprites/goblin-units-atlas.png";
-    desertRegion.src = "/art/sprites/desert-region-atlas.png";
-    desertUnits.src = "/art/sprites/desert-units-atlas.png";
-    desertV2.src = "/art/sprites/zahar-expanded-atlas.png";
+    desertRegion.src = "/art/sprites/desert-environment-v2.png";
+    desertUnits.src = "/art/sprites/desert-enemies-v2.png";
     farmRegion.src = "/art/sprites/farm-region-atlas.png";
     farmCrops.src = "/art/sprites/farm-crops-atlas.png";
     clearNpcs.src = "/art/sprites/npc-citizens-atlas.png";
@@ -1546,7 +1518,7 @@ export default function PixelRpgGame() {
     archerDirectional.src = "/art/sprites/archer-directional-sheet.png";
     water.src = "/art/sprites/pure-water-tiles.png";
     let raf = 0;
-    const imageFor = (atlas?: Atlas | "sprites") => atlas === "forest" ? forest : atlas === "ocean" ? ocean : atlas === "city" ? city : atlas === "city2" ? city2 : atlas === "fortified" ? fortified : atlas === "goblinRegion" ? goblinRegion : atlas === "goblinUnits" ? goblinUnits : atlas === "desertRegion" ? desertRegion : atlas === "desertUnits" || atlas === "desertV2" ? desertUnits : atlas === "farmRegion" ? farmRegion : atlas === "farmCrops" ? farmCrops : atlas === "expansion" ? expansion : atlas === "sprites" || atlas === "npcs" ? sprites : tiles;
+    const imageFor = (atlas?: Atlas | "sprites") => atlas === "forest" ? forest : atlas === "ocean" ? ocean : atlas === "city" ? city : atlas === "city2" ? city2 : atlas === "fortified" ? fortified : atlas === "goblinRegion" ? goblinRegion : atlas === "goblinUnits" ? goblinUnits : atlas === "desertRegion" ? desertRegion : atlas === "desertUnits" ? desertUnits : atlas === "farmRegion" ? farmRegion : atlas === "farmCrops" ? farmCrops : atlas === "expansion" ? expansion : atlas === "sprites" || atlas === "npcs" ? sprites : tiles;
 
     const facingVector = (direction: Direction): [number, number] =>
       direction === "left" ? [-1, 0] : direction === "right" ? [1, 0] : direction === "up" ? [0, -1] : [0, 1];
@@ -1686,6 +1658,12 @@ export default function PixelRpgGame() {
           p.x = 32 * TILE;
           p.y = 32 * TILE;
           setToast("YOUR HOMESTEAD");
+        } else if (p.x < 7.5 * TILE) {
+          if (game.farmUnlocked) setFarmOpen("stock");
+          else setToast("LEARN FARMING FROM NELLA TO OPEN THE PANTRY");
+        } else if (p.x > 12.5 * TILE) {
+          if (game.farmUnlocked) setFarmOpen("manage");
+          else setToast("THE FARM LEDGER IS EMPTY · SPEAK WITH NELLA");
         } else {
           setCookingOpen(true);
         }
@@ -2167,7 +2145,7 @@ export default function PixelRpgGame() {
       c.clearRect(0, 0, W, H);
       c.fillStyle = "#142617";
       c.fillRect(0, 0, W, H);
-      if (tiles.complete && tiles.naturalWidth && sprites.complete && sprites.naturalWidth && expansion.complete && expansion.naturalWidth && forest.complete && ocean.complete && city.complete && city2.complete && fortified.complete && fortified.naturalWidth && goblinRegion.complete && goblinRegion.naturalWidth && goblinUnits.complete && goblinUnits.naturalWidth && desertRegion.complete && desertRegion.naturalWidth && desertUnits.complete && desertUnits.naturalWidth && desertV2.complete && desertV2.naturalWidth && zaharDetailAtlas.width && farmRegion.complete && farmRegion.naturalWidth && farmCrops.complete && farmCrops.naturalWidth && clearNpcs.complete && clearNpcs.naturalWidth && clearNpcAtlas.width && warriorAnim.complete && warriorAnim.naturalWidth && archerAnim.complete && archerAnim.naturalWidth && warriorDirectional.complete && warriorDirectional.naturalWidth && archerDirectional.complete && archerDirectional.naturalWidth && water.complete) {
+      if (tiles.complete && tiles.naturalWidth && sprites.complete && sprites.naturalWidth && expansion.complete && expansion.naturalWidth && forest.complete && ocean.complete && city.complete && city2.complete && fortified.complete && fortified.naturalWidth && goblinRegion.complete && goblinRegion.naturalWidth && goblinUnits.complete && goblinUnits.naturalWidth && desertRegion.complete && desertRegion.naturalWidth && desertUnits.complete && desertUnits.naturalWidth && farmRegion.complete && farmRegion.naturalWidth && farmCrops.complete && farmCrops.naturalWidth && clearNpcs.complete && clearNpcs.naturalWidth && clearNpcAtlas.width && warriorAnim.complete && warriorAnim.naturalWidth && archerAnim.complete && archerAnim.naturalWidth && warriorDirectional.complete && warriorDirectional.naturalWidth && archerDirectional.complete && archerDirectional.naturalWidth && water.complete) {
         const game = gameRef.current;
         const cam = game.camera;
         if (game.area === "shop" || game.area === "home") {
@@ -2180,7 +2158,16 @@ export default function PixelRpgGame() {
           if (game.area === "home") {
             c.fillStyle = "#d7a84d";
             c.font = "18px Georgia";
-            c.fillText("YOUR HEARTH", 8.8 * TILE - cam.x, 3.3 * TILE - cam.y);
+            c.fillText("موقد الطبخ", 8.8 * TILE - cam.x, 3.3 * TILE - cam.y);
+            c.font = "bold 13px Georgia";
+            c.fillStyle = "#f2dda0";
+            c.fillText("المخزن والمحاصيل", 3.3 * TILE - cam.x, 8.4 * TILE - cam.y);
+            c.fillText("دفتر تطوير المزرعة", 12.4 * TILE - cam.x, 8.9 * TILE - cam.y);
+            c.fillStyle = "rgba(12, 8, 4, .72)";
+            c.fillRect(6.1 * TILE - cam.x, 10.1 * TILE - cam.y, 7.8 * TILE, 28);
+            c.fillStyle = "#fff0bb";
+            c.font = "12px Georgia";
+            c.fillText("E · اطبخ في الوسط · المخزن يساراً · التطوير يميناً", 6.35 * TILE - cam.x, 10.5 * TILE - cam.y);
           }
           c.fillStyle = "#6f4c2e";
           c.fillRect(8 * TILE - cam.x, 12 * TILE - cam.y, 4 * TILE, 12);
@@ -2195,25 +2182,80 @@ export default function PixelRpgGame() {
             const isFarm = tx >= 60 && tx <= 112 && ty >= 42 && ty < 63;
             if (isDesert) {
               const desertKind = desertTileAt(tx, ty);
-              c.fillStyle = desertKind === 3 ? "#d8c28c" : desertKind === 1 ? "#c99a55" : ((tx * 13 + ty * 7) % 5 < 2 ? "#c58d45" : "#bc843b");
+              const sandHash = Math.abs((tx * 73856093) ^ (ty * 19349663));
+              const sandColors = ["#c58d45", "#c9934b", "#bd823b", "#d09a51"];
+              c.fillStyle = desertKind === 3 ? (sandHash % 3 ? "#d8c28c" : "#cdb77d") : desertKind === 1 ? (sandHash % 2 ? "#b98243" : "#c08c4c") : sandColors[sandHash % sandColors.length];
               c.fillRect(tx * TILE - cam.x, ty * TILE - cam.y, TILE + 1, TILE + 1);
               c.save();
-              c.globalAlpha = desertKind === 3 ? .48 : .3;
-              drawCell(c, desertRegion, desertKind, tx * TILE - cam.x - 3, ty * TILE - cam.y - 3, TILE + 7, TILE + 7);
-              c.restore();
-              if ((tx * 19 + ty * 11) % 7 === 0) {
-                c.strokeStyle = "rgba(247,210,132,.3)";
-                c.lineWidth = 2;
+              const tileX = tx * TILE - cam.x;
+              const tileY = ty * TILE - cam.y;
+              if (desertKind === 1) {
+                c.strokeStyle = "rgba(96,55,25,.28)";
+                c.lineWidth = 1;
+                c.strokeRect(tileX + 4, tileY + 5, TILE - 8, TILE - 10);
                 c.beginPath();
-                c.arc(tx * TILE + 22 - cam.x, ty * TILE + 25 - cam.y, 12, .15, 2.65);
+                c.moveTo(tileX + 4, tileY + TILE * .55);
+                c.lineTo(tileX + TILE - 4, tileY + TILE * .45);
+                c.stroke();
+              } else if (desertKind === 3) {
+                c.strokeStyle = "rgba(109,88,49,.28)";
+                c.lineWidth = 1.5;
+                c.beginPath();
+                c.moveTo(tileX + 8, tileY + 6);
+                c.lineTo(tileX + 22, tileY + 20);
+                c.lineTo(tileX + 15, tileY + 34);
+                c.moveTo(tileX + 22, tileY + 20);
+                c.lineTo(tileX + 41, tileY + 13);
+                c.stroke();
+              } else if (sandHash % 4 === 0) {
+                c.strokeStyle = "rgba(255,220,151,.34)";
+                c.lineWidth = 1.5;
+                c.beginPath();
+                c.moveTo(tileX + 7, tileY + 18 + (sandHash % 12));
+                c.bezierCurveTo(tileX + 18, tileY + 10 + (sandHash % 12), tileX + 34, tileY + 28 + (sandHash % 9), tileX + 53, tileY + 17 + (sandHash % 11));
                 c.stroke();
               }
+              if (sandHash % 11 === 0) {
+                c.fillStyle = "rgba(103,63,32,.38)";
+                c.beginPath();
+                c.ellipse(tileX + 11 + sandHash % 33, tileY + 14 + sandHash % 24, 2.5, 1.5, 0, 0, Math.PI * 2);
+                c.fill();
+              }
+              c.restore();
             } else if (isFarm) {
               drawCell(c, ground === 3 ? water : tiles, ground === 3 ? 0 : ground, tx * TILE - cam.x, ty * TILE - cam.y, TILE + 1, TILE + 1);
-              const farmTile = farmTileAt(tx, ty, game.farmLevel);
-              if (farmTile >= 0) drawCell(c, farmRegion, farmTile, tx * TILE - cam.x - 2, ty * TILE - cam.y - 2, TILE + 5, TILE + 5);
+              const villageFarmTile = villageFarmTileAt(tx, ty);
+              if (villageFarmTile >= 0) {
+                if (villageFarmTile === 0) {
+                  // Each crop owns one readable square bed with a grass gutter.
+                  drawCell(c, farmRegion, 1, tx * TILE - cam.x + 4, ty * TILE - cam.y + 4, TILE - 8, TILE - 8);
+                } else {
+                  drawCell(c, farmRegion, villageFarmTile, tx * TILE - cam.x - 2, ty * TILE - cam.y - 2, TILE + 5, TILE + 5);
+                }
+                if (villageFarmTile === 0) {
+                  const villagePlot = game.farmPlots.find((plot) => plot.id === `village-plot-${tx}-${ty}`);
+                  if (villagePlot?.crop) {
+                    const cell = CROP_META[villagePlot.crop].row * 4 + Math.max(0, cropStage(villagePlot));
+                    drawCell(c, farmCrops, cell, tx * TILE - cam.x + 6, ty * TILE - cam.y + 2, TILE - 12, TILE - 7);
+                  }
+                  if (villagePlot && game.farmUnlocked && Math.hypot(villagePlot.x - game.player.x, villagePlot.y - game.player.y) < 70) {
+                    c.save();
+                    c.strokeStyle = "#ffe38a";
+                    c.lineWidth = 3;
+                    c.strokeRect(tx * TILE - cam.x + 2, ty * TILE - cam.y + 2, TILE - 4, TILE - 4);
+                    c.fillStyle = "rgba(24, 14, 5, .9)";
+                    c.fillRect(tx * TILE - cam.x + 11, ty * TILE - cam.y - 20, 27, 20);
+                    c.fillStyle = "#fff0ad";
+                    c.font = "bold 13px Georgia";
+                    c.fillText("E", tx * TILE - cam.x + 20, ty * TILE - cam.y - 6);
+                    c.restore();
+                  }
+                }
+              }
             } else {
               drawCell(c, ground === 3 ? water : tiles, ground === 3 ? 0 : ground, tx * TILE - cam.x, ty * TILE - cam.y, TILE + 1, TILE + 1);
+              const homesteadTile = farmTileAt(tx, ty, game.farmLevel);
+              if (homesteadTile >= 0) drawCell(c, farmRegion, homesteadTile, tx * TILE - cam.x - 2, ty * TILE - cam.y - 2, TILE + 5, TILE + 5);
             }
           }
           const bridgeY = 21 * TILE;
@@ -2223,11 +2265,34 @@ export default function PixelRpgGame() {
             const fy = ((i * 191) % WORLD_H) - cam.y;
             if (fx > -40 && fx < W + 40 && fy > -40 && fy < H + 40) drawCell(c, tiles, 13, fx, fy, 42, 42);
           }
+          const villageFarmFields = [
+            { x: 72, y: 48, w: 8, h: 7, name: "حقل الخضروات" },
+            { x: 81, y: 48, w: 10, h: 7, name: "حقل الحبوب" },
+            { x: 92, y: 48, w: 10, h: 7, name: "حديقة السوق" },
+            { x: 81, y: 56, w: 14, h: 7, name: "البستان الجنوبي" },
+          ];
+          for (const field of villageFarmFields) {
+            const sx = field.x * TILE - cam.x;
+            const sy = field.y * TILE - cam.y;
+            const sw = field.w * TILE;
+            const sh = field.h * TILE;
+            if (sx > W || sy > H || sx + sw < 0 || sy + sh < 0) continue;
+            c.save();
+            c.strokeStyle = "rgba(230, 200, 117, .72)";
+            c.lineWidth = 4;
+            c.strokeRect(sx + 4, sy + 4, sw - 8, sh - 8);
+            c.fillStyle = "rgba(27, 18, 8, .84)";
+            c.fillRect(sx + 12, sy + sh - 36, 138, 27);
+            c.fillStyle = "#ffe8a0";
+            c.font = "bold 13px Georgia";
+            c.fillText(field.name, sx + 21, sy + sh - 17);
+            c.restore();
+          }
           const farmFields = [
-            { level: 1, x: 72, y: 48, w: 8, h: 7, name: "الحقل المبدئي" },
-            { level: 2, x: 81, y: 48, w: 10, h: 7, name: "الحقل الثاني" },
-            { level: 3, x: 92, y: 48, w: 10, h: 7, name: "الحقل الثالث" },
-            { level: 4, x: 81, y: 56, w: 14, h: 7, name: "الحقل الجنوبي" },
+            { level: 1, x: 35, y: 29, w: 5, h: 5, name: "حديقة المنزل" },
+            { level: 2, x: 40, y: 29, w: 7, h: 5, name: "حقل البئر" },
+            { level: 3, x: 35, y: 35, w: 7, h: 5, name: "بستان الجنوب" },
+            { level: 4, x: 42, y: 35, w: 9, h: 5, name: "أرض السوق" },
           ];
           for (const field of farmFields) {
             const sx = field.x * TILE - cam.x;
@@ -2236,6 +2301,18 @@ export default function PixelRpgGame() {
             const sh = field.h * TILE;
             if (sx > W || sy > H || sx + sw < 0 || sy + sh < 0) continue;
             c.save();
+            if (field.level > game.farmLevel) {
+              c.fillStyle = "rgba(71, 55, 34, .42)";
+              c.fillRect(sx + 5, sy + 5, sw - 10, sh - 10);
+              c.strokeStyle = "rgba(205, 183, 125, .22)";
+              c.lineWidth = 2;
+              for (let stripe = -sh; stripe < sw; stripe += 34) {
+                c.beginPath();
+                c.moveTo(sx + stripe, sy + sh);
+                c.lineTo(sx + stripe + sh, sy);
+                c.stroke();
+              }
+            }
             c.strokeStyle = field.level <= game.farmLevel ? (game.farmStyle === "orchard" ? "#9bd36d" : game.farmStyle === "market" ? "#f0bd55" : "#d6c17d") : "#6c6752";
             c.lineWidth = 5;
             c.setLineDash(field.level <= game.farmLevel ? [] : [14, 10]);
@@ -2249,13 +2326,26 @@ export default function PixelRpgGame() {
           }
           const renderables: { y: number; draw: () => void }[] = [];
           for (const plot of game.farmPlots) {
+            if (plot.id.startsWith("village-plot-")) continue;
             if (plot.unlockedAt > game.farmLevel) continue;
             renderables.push({ y: plot.y, draw: () => {
               const stage = cropStage(plot);
-              drawCell(c, farmRegion, plot.watered ? 2 : 1, plot.x - 48 - cam.x, plot.y - 52 - cam.y, 96, 74);
+              drawCell(c, farmRegion, plot.watered ? 2 : 1, plot.x - 43 - cam.x, plot.y - 43 - cam.y, 86, 86);
               if (plot.crop) {
                 const cell = CROP_META[plot.crop].row * 4 + Math.max(0, stage);
-                drawCell(c, farmCrops, cell, plot.x - 48 - cam.x, plot.y - 94 - cam.y, 96, 96);
+                drawCell(c, farmCrops, cell, plot.x - 37 - cam.x, plot.y - 39 - cam.y, 74, 74);
+              }
+              if (game.farmUnlocked && Math.hypot(plot.x - game.player.x, plot.y - game.player.y) < 70) {
+                c.save();
+                c.strokeStyle = "#ffe38a";
+                c.lineWidth = 3;
+                c.strokeRect(plot.x - 45 - cam.x, plot.y - 45 - cam.y, 90, 90);
+                c.fillStyle = "rgba(24, 14, 5, .9)";
+                c.fillRect(plot.x - 14 - cam.x, plot.y - 69 - cam.y, 28, 21);
+                c.fillStyle = "#fff0ad";
+                c.font = "bold 13px Georgia";
+                c.fillText("E", plot.x - 5 - cam.x, plot.y - 54 - cam.y);
+                c.restore();
               }
             }});
           }
@@ -2270,8 +2360,25 @@ export default function PixelRpgGame() {
                 c.shadowBlur = 28;
               }
               if (item.action === "desertPlate" && game.desertPlates.includes(item.id)) c.globalAlpha = .65;
-              if (item.atlas === "desertV2") drawZaharDetail(c, zaharDetailAtlas, item, cam);
-              else drawWorldObject(c, imageFor(item.atlas), item, cam);
+              if (item.action === "desertPlate") {
+                const x = item.x - cam.x;
+                const y = item.y - cam.y;
+                const active = game.desertPlates.includes(item.id);
+                c.fillStyle = active ? "rgba(255,218,91,.68)" : "rgba(90,55,27,.82)";
+                c.strokeStyle = active ? "#fff2a5" : "#d4a757";
+                c.lineWidth = 4;
+                c.beginPath();
+                c.ellipse(x, y - 8, 43, 20, 0, 0, Math.PI * 2);
+                c.fill();
+                c.stroke();
+                c.beginPath();
+                c.moveTo(x, y - 24);
+                c.lineTo(x + 14, y - 8);
+                c.lineTo(x, y + 8);
+                c.lineTo(x - 14, y - 8);
+                c.closePath();
+                c.stroke();
+              } else drawWorldObject(c, imageFor(item.atlas), item, cam);
               c.restore();
             } });
           }
@@ -2285,7 +2392,7 @@ export default function PixelRpgGame() {
           }
           for (const npc of NPCS) {
             if (npc.id === "peeb" && game.goblinPrisonerFreed) continue;
-            const npcSize = npc.atlas === "goblinUnits" || npc.atlas === "desertUnits" ? 74 : 68;
+            const npcSize = npc.atlas === "desertUnits" && npc.cell === 10 ? 94 : npc.atlas === "goblinUnits" || npc.atlas === "desertUnits" ? 74 : 68;
             renderables.push({ y: npc.y, draw: () => {
               if (npc.atlas === "npcs") drawGridCell(c, clearNpcAtlas, npc.cell, 32, 14, npc.x - 31 - cam.x, npc.y - 74 - cam.y, 62, 76);
               else drawCell(c, imageFor(npc.atlas ?? "sprites"), npc.cell, npc.x - npcSize / 2 - cam.x, npc.y - npcSize - cam.y, npcSize, npcSize);
@@ -2325,13 +2432,7 @@ export default function PixelRpgGame() {
               }
               if (enemy.flash > 0) c.globalAlpha = .45;
               const bossPulse = enemy.boss ? Math.sin(game.time * (enemy.specialTime ? 15 : 5) + enemy.id) * (enemy.specialTime ? 7 : 3) : 0;
-              if (enemy.id >= 490 && enemy.id <= 492) {
-                drawZaharCrop(c, zaharDetailAtlas, 23 + enemy.id - 490, enemy.x - (size + bossPulse) / 2 - cam.x, enemy.y - size - bossPulse - cam.y, size + bossPulse, size + bossPulse);
-              } else if (enemy.id === 499) {
-                drawZaharCrop(c, zaharDetailAtlas, 27, enemy.x - (size + bossPulse) / 2 - cam.x, enemy.y - size - bossPulse - cam.y, size + bossPulse, size + bossPulse);
-              } else {
-                drawCell(c, imageFor(enemy.atlas ?? "sprites"), enemy.cell, enemy.x - (size + bossPulse) / 2 - cam.x, enemy.y - size - bossPulse - cam.y, size + bossPulse, size + bossPulse);
-              }
+              drawCell(c, imageFor(enemy.atlas ?? "sprites"), enemy.cell, enemy.x - (size + bossPulse) / 2 - cam.x, enemy.y - size - bossPulse - cam.y, size + bossPulse, size + bossPulse);
               c.restore();
               if (!enemy.passive || enemy.hp < enemy.maxHp) {
                 c.fillStyle = "#31120e";
