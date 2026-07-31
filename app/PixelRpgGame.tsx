@@ -1286,7 +1286,7 @@ export default function PixelRpgGame() {
       game.player.energy = 120;
     }
     gameRef.current = game;
-    setToast(hero === "warrior" ? "تم اختيار عمر · الرمح والنور" : "تم اختيار نعيمة · القوس والرياح");
+    setToast(hero === "warrior" ? "تم اختيار عمر · الرمح والنور" : "تم اختيار نعمة · القوس والرياح");
     setPhase("playing");
   }, [setPhase]);
 
@@ -2586,11 +2586,11 @@ export default function PixelRpgGame() {
             </article>
             <article className="hero-card archer">
               <div className="hero-preview" />
-              <h3>نعيمة، رامية الرياح</h3>
+              <h3>نعمة، رامية الرياح</h3>
               <strong>قوس · رياح · قتال بعيد</strong>
               <p>رامية سريعة تستخدم سهماً خارقاً ووابل خمسة سهام ومطر سهام موجه من السماء.</p>
               <ul><li>Q · الضوء الخارق</li><li>R · وابل المروحة</li><li>F · مطر السماء</li></ul>
-              <button onClick={() => chooseHero("archer")}>العب بنعيمة</button>
+              <button onClick={() => chooseHero("archer")}>العب بنعمة</button>
             </article>
           </div>
           <button className="hero-back" onClick={() => setPhase("title")}>رجوع</button>
@@ -2600,7 +2600,7 @@ export default function PixelRpgGame() {
         <>
           <header className="pixel-hud">
             <div className={`pixel-portrait ${hud.hero}`}>{hud.hero === "warrior" ? "◇" : "➶"}</div>
-            <div><strong>{hud.hero === "warrior" ? "عمر" : "نعيمة"}</strong><small>المستوى 1 · {hud.hero === "warrior" ? "المحارب الصامت" : "رامية الرياح"}</small>
+            <div><strong>{hud.hero === "warrior" ? "عمر" : "نعمة"}</strong><small>المستوى 1 · {hud.hero === "warrior" ? "المحارب الصامت" : "رامية الرياح"}</small>
               <span className="pixel-bar hp"><i style={{ width: `${hud.hp / hud.maxHp * 100}%` }} /><b><em>♥ الصحة</em>{Math.ceil(hud.hp)} / {hud.maxHp}</b></span>
               <span className="pixel-bar mp"><i style={{ width: `${hud.energy / hud.maxEnergy * 100}%` }} /><b><em>◆ الطاقة</em>{Math.ceil(hud.energy)} / {hud.maxEnergy}</b></span>
             </div>
@@ -2653,7 +2653,7 @@ export default function PixelRpgGame() {
             <div className="inventory-layout">
               <aside className="inventory-character">
                 <div className={`inventory-hero ${hud.hero}`} aria-hidden="true" />
-                <h3>{hud.hero === "warrior" ? "عمر" : "نعيمة"}</h3>
+                <h3>{hud.hero === "warrior" ? "عمر" : "نعمة"}</h3>
                 <p>المستوى 1 · {hud.hero === "warrior" ? "رمّاح النور" : "رامية الرياح"}</p>
                 <div className="inventory-vitals">
                   <span><i className="health-dot" />الصحة <b>{Math.ceil(hud.hp)} / {hud.maxHp}</b></span>
